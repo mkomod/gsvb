@@ -1,0 +1,2 @@
+importFrom(Rcpp, sourceCpp)
+useDynLib(gsvb, .registration=TRUE)
