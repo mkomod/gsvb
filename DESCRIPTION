@@ -8,4 +8,4 @@ Maintainer: Michael Komodromos <mk1019@ic.ac.uk>
 Description:
 License:
 Imports: Rcpp
-LinkingTo: Rcpp, RcppEigen
+LinkingTo: Rcpp, RcppArmadillo, RcppEnsmallen
