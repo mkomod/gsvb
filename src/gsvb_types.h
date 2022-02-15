@@ -1,11 +1,11 @@
 #ifndef GSVB_HPP
 #define GSVB_HPP
 
-#include "RcppEigen.h"
+#include "RcppArmadillo.h"
 
-typedef Eigen::VectorXd vec;
-typedef Eigen::VectorXi veci;
-typedef Eigen::MatrixXd mat;
-typedef Eigen::MatrixXi mati;
+typedef arma::vec vec;
+typedef arma::uvec uvec;
+typedef arma::uword uword;
+typedef arma::mat mat;
 
 #endif

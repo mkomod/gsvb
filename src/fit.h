@@ -1,17 +1,20 @@
 #ifndef GSVB_FIT_H
 #define GSVB_FIT_H
 
-#include "RcppEigen.h"
+#include "RcppEnsmallen.h"
 
 #include "gsvb_types.h"
 #include "utils.h"
 
-double update_mu(unsigned int i, int gi, const mat &xtx, double yx_i, 
-	const vec &mu, const vec &s, const vec &g, double sigma, double lambda,
-	const std::vector<std::array<int, 2>> &gindices);
+vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx, 
+	const vec &yx, const vec &mu, const vec &s, const vec &g, 
+	const double sigma, const double lambda);
 
-double update_g(unsigned int gi, const mat &xtx, const vec &yx, const vec &mu,
-	const vec &s, const vec &g, double sigma, double lambda, double w,
-	const std::vector<std::array<int, 2>> &gindices);
+vec update_s(const uvec &G, const mat &xtx, const vec &mu, 
+	const vec &s, const double sigma, const double lambda);
+
+double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
+	const vec &yx, const vec &mu, const vec &s, const vec &g, double sigma,
+	double lambda, double w);
 
 #endif
