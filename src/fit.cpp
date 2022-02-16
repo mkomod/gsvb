@@ -18,6 +18,8 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 
     // init s
     s = arma::pow(xtx.diag() / pow(sigma, 2.0) + 2.0 * lambda, -0.5);
+    uword num_iter = niter;
+    bool converged = false;
 
     for (unsigned int iter = 1; iter <= niter; ++iter) {
 
@@ -44,7 +46,9 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	    sum(abs(g_old - g))   < tol) 
 	{
 	    if (verbose)
-		Rcpp::Rcout << "Converged in " << iter << " iterations\n";
+		Rcpp::Rcout << "\nConverged in " << iter << " iterations\n";
+	    num_iter = iter;
+	    converged = true;
 	    break;
 	}
     }
@@ -53,8 +57,8 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	Rcpp::Named("mu") = mu,
 	Rcpp::Named("sigma") = s,
 	Rcpp::Named("gamma") = g,
-	Rcpp::Named("converged") = false,
-	Rcpp::Named("iter") = niter
+	Rcpp::Named("converged") = converged,
+	Rcpp::Named("iterations") = num_iter
     );
 }
 
