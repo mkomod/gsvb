@@ -9,3 +9,4 @@ Description:
 License:
 Imports: Rcpp
 LinkingTo: Rcpp, RcppArmadillo, RcppEnsmallen
+RoxygenNote: 7.1.1
