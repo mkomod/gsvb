@@ -2,3 +2,5 @@ importFrom(Rcpp, sourceCpp)
 importFrom(stats, runif)
 useDynLib(gsvb, .registration=TRUE)
 export(gsvb.fit)
+export(gsvb.elbo)
+
