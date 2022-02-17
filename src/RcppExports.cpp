@@ -13,9 +13,30 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// elbo
+double elbo(const vec& y, const mat& X, const uvec& groups, const vec& mu, const vec& s, const vec& g, double lambda, double a0, double b0, double sigma, uword mcn);
+RcppExport SEXP _gsvb_elbo(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP sigmaSEXP, SEXP mcnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const vec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< const mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const uvec& >::type groups(groupsSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type s(sSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type g(gSEXP);
+    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< uword >::type mcn(mcnSEXP);
+    rcpp_result_gen = Rcpp::wrap(elbo(y, X, groups, mu, s, g, lambda, a0, b0, sigma, mcn));
+    return rcpp_result_gen;
+END_RCPP
+}
 // fit
-Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double sigma, vec mu, vec s, vec g, unsigned int niter, double tol, bool verbose);
-RcppExport SEXP _gsvb_fit(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP sigmaSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
+Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double sigma, vec mu, vec s, vec g, bool track_elbo, const uword track_elbo_every, const unsigned int track_elbo_mcn, unsigned int niter, double tol, bool verbose);
+RcppExport SEXP _gsvb_fit(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP sigmaSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -29,10 +50,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< vec >::type mu(muSEXP);
     Rcpp::traits::input_parameter< vec >::type s(sSEXP);
     Rcpp::traits::input_parameter< vec >::type g(gSEXP);
+    Rcpp::traits::input_parameter< bool >::type track_elbo(track_elboSEXP);
+    Rcpp::traits::input_parameter< const uword >::type track_elbo_every(track_elbo_everySEXP);
+    Rcpp::traits::input_parameter< const unsigned int >::type track_elbo_mcn(track_elbo_mcnSEXP);
     Rcpp::traits::input_parameter< unsigned int >::type niter(niterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit(y, X, groups, lambda, a0, b0, sigma, mu, s, g, niter, tol, verbose));
+    rcpp_result_gen = Rcpp::wrap(fit(y, X, groups, lambda, a0, b0, sigma, mu, s, g, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -114,7 +138,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_gsvb_fit", (DL_FUNC) &_gsvb_fit, 13},
+    {"_gsvb_elbo", (DL_FUNC) &_gsvb_elbo, 11},
+    {"_gsvb_fit", (DL_FUNC) &_gsvb_fit, 16},
     {"_gsvb_update_mu", (DL_FUNC) &_gsvb_update_mu, 9},
     {"_gsvb_update_mu_fn_2", (DL_FUNC) &_gsvb_update_mu_fn_2, 11},
     {"_gsvb_update_s", (DL_FUNC) &_gsvb_update_s, 6},

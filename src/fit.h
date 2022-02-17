@@ -5,6 +5,7 @@
 
 #include "gsvb_types.h"
 #include "utils.h"
+#include "elbo.h"
 
 vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx, 
 	const vec &yx, const vec &mu, const vec &s, const vec &g, 

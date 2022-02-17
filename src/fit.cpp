@@ -4,7 +4,8 @@
 // [[Rcpp::export]]
 Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	const double b0, const double sigma, vec mu, vec s, vec g, 
-	unsigned int niter, double tol, bool verbose)
+	bool track_elbo, const uword track_elbo_every, const unsigned int 
+	track_elbo_mcn, unsigned int niter, double tol, bool verbose)
 {
     const uword n = X.n_rows;
     const uword p = X.n_cols;
@@ -17,9 +18,9 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     vec mu_old, s_old, g_old;
 
     // init s
-    s = arma::pow(xtx.diag() / pow(sigma, 2.0) + 2.0 * lambda, -0.5);
     uword num_iter = niter;
     bool converged = false;
+    std::vector<double> elbo_values;
 
     for (unsigned int iter = 1; iter <= niter; ++iter) {
 
@@ -40,6 +41,11 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	Rcpp::checkUserInterrupt();
 	if (verbose) Rcpp::Rcout << iter;
 
+	if (track_elbo && (iter % track_elbo_every == 0)) {
+	    double e = elbo(y, X, groups, mu, s, g, lambda, a0, b0, sigma, track_elbo_mcn);
+	    elbo_values.push_back(e);
+	}
+
 	// check convergence
 	if (sum(abs(mu_old - mu)) < tol &&
 	    sum(abs(s_old - s))   < tol &&
@@ -52,13 +58,19 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	    break;
 	}
     }
+    
+    if (track_elbo) {
+	double e = elbo(y, X, groups, mu, s, g, lambda, a0, b0, sigma, track_elbo_mcn);
+	elbo_values.push_back(e);
+    }
 
     return Rcpp::List::create(
 	Rcpp::Named("mu") = mu,
 	Rcpp::Named("sigma") = s,
 	Rcpp::Named("gamma") = g,
 	Rcpp::Named("converged") = converged,
-	Rcpp::Named("iterations") = num_iter
+	Rcpp::Named("iterations") = num_iter,
+	Rcpp::Named("elbo") = elbo_values
     );
 }
 
