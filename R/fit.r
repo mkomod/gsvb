@@ -10,6 +10,9 @@
 #' @param mu initial values of mu, the means of the variational family
 #' @param s initial values of s, the std. dev of the variational family
 #' @param g initial values of g, the group inclusion probabilities of the variational family
+#' @param track_elbo track the evidence lower bound (ELBO)
+#' @param track_elbo_every the number of iterations between computing the ELBO
+#' @param track_elbo_mcn number of Monte-Carlo samples to compute the ELBO
 #' @param niter maximum number of iteration to run the algorithm for
 #' @param tol convergence tolerance
 #' @param verbose print additional information
@@ -42,26 +45,20 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, lambda=1, a0=1, b0=length(unique(groups)),
-    sigma=1, mu=runif(ncol(X), -0.2, 0.2), s=rep(0.5, ncol(X)),
-    g=rep(0.5, ncol(X)), niter=150, tol=1e-3, verbose=TRUE) 
+gsvb.fit <- function(y, X, groups, lambda=1, a0=1, 
+    b0=length(unique(groups)), sigma=1, mu=runif(ncol(X), -0.2, 0.2), 
+    s=apply(X, 2, function(x) 1/sqrt(sum(x^2) / sigma^2 + 2*lambda)),
+    g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
+    track_elbo_mcn=1e4, niter=150, tol=1e-3, verbose=TRUE) 
 {
     # pre-processing
     group.order <- order(groups)
     groups <- groups[group.order]
     X <- X[ , group.order]
-    
-    # vars
-    n <- nrow(X)
-    p <- ncol(X)
-    
-    # initialize parameters
-    mu <- rnorm(p)
-    s <- rep(0.1, p)
-    g <- rep(0.1, p)
 
     # run algorithm
-    f <- fit(y, X, groups, lambda, a0, b0, sigma, mu, s, g, niter, tol, verbose)
+    f <- fit(y, X, groups, lambda, a0, b0, sigma, mu, s, g, track_elbo, 
+	track_elbo_every, track_elbo_mcn, niter, tol, verbose)
 
     # re-order to match input order
     mu <- f$mu[group.order]
@@ -77,6 +74,9 @@ gsvb.fit <- function(y, X, groups, lambda=1, a0=1, b0=length(unique(groups)),
 	converged = f$converged,
 	iter = f$iter
     )
+   
+    if (track_elbo)
+	res$elbo <- f$elbo
 
     return(res)
 }
