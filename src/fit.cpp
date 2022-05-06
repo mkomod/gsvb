@@ -117,7 +117,7 @@ vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx,
 	const double sigma, const double lambda)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 5;
+    opt.MaxIterations() = 8;
     update_mu_fn fn(G, Gc, xtx, yx, mu, s, g, sigma, lambda);
 
     vec m = mu(G);
@@ -180,7 +180,7 @@ vec update_s(const uvec &G, const mat &xtx, const vec &mu,
 {
     ens::L_BFGS opt;
     update_s_fn fn(G, xtx, mu, sigma, lambda);
-    opt.MaxIterations() = 5;
+    opt.MaxIterations() = 8;
     
     vec sig = s(G);
     opt.Optimize(fn, sig);

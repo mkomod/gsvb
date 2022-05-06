@@ -3,6 +3,7 @@
 #' @param y response vector
 #' @param X input matrix
 #' @param groups group structure
+#' @param intercept should an intercept term be included
 #' @param lambda penalization hyperparameter for the multivariate exponential prior
 #' @param a0 shape parameter for the Beta(a0, b0) mixing prior
 #' @param b0 shape parameter for the Beta(a0, b0) mixing prior
@@ -45,16 +46,33 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, lambda=1, a0=1, 
-    b0=length(unique(groups)), sigma=1, mu=runif(ncol(X), -0.2, 0.2), 
+gsvb.fit <- function(y, X, groups, intercept=TRUE, 
+    lambda=1, a0=1, b0=length(unique(groups)), sigma=1, mu=NULL, 
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2) / sigma^2 + 2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
     track_elbo_mcn=1e4, niter=150, tol=1e-3, verbose=TRUE) 
 {
     # pre-processing
+    if (intercept) {
+	groups <- c(min(groups) - 1, groups) + 1
+	X <- cbind(rep(1, nrow(X)), X)
+	
+	# update the initial parameters
+	if (length(s) != ncol(X))
+	    s <- 1/(sqrt(n) / sigma^2 + 2 * lambda)
+
+	if (length(g) != ncol(X))
+	    g <- c(0.5, g)
+    }
+    
     group.order <- order(groups)
     groups <- groups[group.order]
     X <- X[ , group.order]
+    
+    if (is.null(mu)) {
+	glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
+	mu <- glfit$beta[ , length(glfit$lambda)]
+    }
 
     # run algorithm
     f <- fit(y, X, groups, lambda, a0, b0, sigma, mu, s, g, track_elbo, 
@@ -68,7 +86,7 @@ gsvb.fit <- function(y, X, groups, lambda=1, a0=1,
     res <- list(
 	mu = mu,
 	s = s,
-	g = g,
+	g = g[!duplicated(groups)],
 	beta_hat = mu * g,
 	parameters = list(lambda = lambda, a0 = a0, b0=b0, sigma=sigma),
 	converged = f$converged,

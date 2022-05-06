@@ -8,11 +8,12 @@ gsvb.fit(
   y,
   X,
   groups,
+  intercept = TRUE,
   lambda = 1,
   a0 = 1,
   b0 = length(unique(groups)),
   sigma = 1,
-  mu = runif(ncol(X), -0.2, 0.2),
+  mu = NULL,
   s = apply(X, 2, function(x) 1/sqrt(sum(x^2)/sigma^2 + 2 * lambda)),
   g = rep(0.5, ncol(X)),
   track_elbo = TRUE,
@@ -29,6 +30,8 @@ gsvb.fit(
 \item{X}{input matrix}
 
 \item{groups}{group structure}
+
+\item{intercept}{should an intercept term be included}
 
 \item{lambda}{penalization hyperparameter for the multivariate exponential prior}
 
