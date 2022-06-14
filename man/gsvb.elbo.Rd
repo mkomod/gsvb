@@ -4,18 +4,30 @@
 \alias{gsvb.elbo}
 \title{Compute the Evidence Lower Bound (ELBO)}
 \usage{
-gsvb.elbo(fit, y, X, groups, mcn = 10000)
+gsvb.elbo(
+  fit,
+  y,
+  X,
+  groups,
+  mcn = 10000,
+  approx = FALSE,
+  approx_thresh = 0.001
+)
 }
 \arguments{
-\item{fit}{fit model}
+\item{fit}{the fit model.}
 
-\item{y}{response vector}
+\item{y}{response vector.}
 
-\item{X}{input matrix}
+\item{X}{input matrix.}
 
-\item{groups}{group structure}
+\item{groups}{group structure.}
 
-\item{mcn}{number of Monte-Carlo samples}
+\item{mcn}{number of Monte-Carlo samples.}
+
+\item{approx}{elements of gamma less than an approximation threshold are not used in computations.}
+
+\item{approx_thresh}{the threshold below which elements of gamma are not used.}
 }
 \value{
 the ELBO (numeric)

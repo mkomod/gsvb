@@ -12,9 +12,10 @@ gsvb.fit(
   lambda = 1,
   a0 = 1,
   b0 = length(unique(groups)),
-  sigma = 1,
+  tau_a0 = 0.001,
+  tau_b0 = 0.001,
   mu = NULL,
-  s = apply(X, 2, function(x) 1/sqrt(sum(x^2)/sigma^2 + 2 * lambda)),
+  s = apply(X, 2, function(x) 1/sqrt(sum(x^2) * tau_a0/tau_b0 + 2 * lambda)),
   g = rep(0.5, ncol(X)),
   track_elbo = TRUE,
   track_elbo_every = 5,
@@ -25,49 +26,54 @@ gsvb.fit(
 )
 }
 \arguments{
-\item{y}{response vector}
+\item{y}{response vector.}
 
-\item{X}{input matrix}
+\item{X}{input matrix.}
 
-\item{groups}{group structure}
+\item{groups}{group structure.}
 
-\item{intercept}{should an intercept term be included}
+\item{intercept}{should an intercept term be included.}
 
-\item{lambda}{penalization hyperparameter for the multivariate exponential prior}
+\item{lambda}{penalization hyperparameter for the multivariate exponential prior.}
 
-\item{a0}{shape parameter for the Beta(a0, b0) mixing prior}
+\item{a0}{shape parameter for the Beta(a0, b0) mixing prior.}
 
-\item{b0}{shape parameter for the Beta(a0, b0) mixing prior}
+\item{b0}{shape parameter for the Beta(a0, b0) mixing prior.}
 
-\item{sigma}{TODO}
+\item{tau_a0}{shape parameter for the inverse-Gamma(a0, b0) prior on the variance, tau^2.}
 
-\item{mu}{initial values of mu, the means of the variational family}
+\item{tau_b0}{scale parameter for the inverse-Gamma(a0, b0) prior on the variance, tau^2.}
 
-\item{s}{initial values of s, the std. dev of the variational family}
+\item{mu}{initial values of mu, the means of the variational family.}
 
-\item{g}{initial values of g, the group inclusion probabilities of the variational family}
+\item{s}{initial values of s, the std. dev of the variational family.}
 
-\item{track_elbo}{track the evidence lower bound (ELBO)}
+\item{g}{initial values of g, the group inclusion probabilities of the variational family.}
 
-\item{track_elbo_every}{the number of iterations between computing the ELBO}
+\item{track_elbo}{track the evidence lower bound (ELBO).}
 
-\item{track_elbo_mcn}{number of Monte-Carlo samples to compute the ELBO}
+\item{track_elbo_every}{the number of iterations between computing the ELBO.}
 
-\item{niter}{maximum number of iteration to run the algorithm for}
+\item{track_elbo_mcn}{number of Monte-Carlo samples to compute the ELBO.}
 
-\item{tol}{convergence tolerance}
+\item{niter}{maximum number of iteration to run the algorithm for.}
 
-\item{verbose}{print additional information}
+\item{tol}{convergence tolerance.}
+
+\item{verbose}{print additional information.}
 }
 \value{
 The program output is a list containing:
-\item{mu}{the means for the variational posterior}
-\item{s}{the std. dev. for the variational posterior}
-\item{g}{the group inclusion probabilities}
-\item{beta_hat}{the variational posterior mean}
-\item{parameters}{a list containing the model hyperparameters}
-\item{converged}{a boolean indicating if the algorithm has converged}
-\item{iter}{the number of iterations the algorithm was ran for}
+\item{mu}{the means for the variational posterior.}
+\item{s}{the std. dev. for the variational posterior.}
+\item{g}{the group inclusion probabilities.}
+\item{beta_hat}{the variational posterior mean.}
+\item{tau_hat}{the mean of the variance term.}
+\item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribtuion.}
+\item{tau_b}{the scale parameter for the variational posterior of tau^2.}
+\item{parameters}{a list containing the model hyperparameters.}
+\item{converged}{a boolean indicating if the algorithm has converged.}
+\item{iter}{the number of iterations the algorithm was ran for.}
 }
 \description{
 Fit high-dimensional group-sparse regression models
