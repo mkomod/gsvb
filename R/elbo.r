@@ -1,10 +1,12 @@
 #' Compute the Evidence Lower Bound (ELBO)
 #'
-#' @param fit fit model
-#' @param y response vector
-#' @param X input matrix
-#' @param groups group structure
-#' @param mcn number of Monte-Carlo samples
+#' @param fit the fit model.
+#' @param y response vector.
+#' @param X input matrix.
+#' @param groups group structure.
+#' @param mcn number of Monte-Carlo samples.
+#' @param approx elements of gamma less than an approximation threshold are not used in computations.
+#' @param approx_thresh the threshold below which elements of gamma are not used.
 #'
 #' @return the ELBO (numeric)
 #' 
@@ -24,9 +26,25 @@
 #' gsvb.elbo(f, y, X, groups) 
 #'
 #' @export
-gsvb.elbo <- function(fit, y, X, groups, mcn=1e4) 
+gsvb.elbo <- function(fit, y, X, groups, mcn=1e4, approx=FALSE, approx_thresh=1e-3) 
 {
-    return(elbo(y, X, groups, fit$mu, fit$s, fit$g, fit$parameters$lambda, 
-	fit$parameters$a0, fit$parameters$b0, fit$parameters$sigma, mcn))
+    if (fit$parameters$intercept) {
+	groups <- c(min(groups) - 1, groups) + 1
+	X <- cbind(rep(1, nrow(X)), X)
+    }
+
+    # TODO: ensure the group ordering is consistent, see: fit.r
+
+    yty <- sum(y * y)
+    yx <- t(X) %*% y
+    xtx <- t(X) %*% X
+
+    n <- nrow(X)
+    p <- ncol(X)
+
+    return(elbo(yty, yx, xtx, groups, n, p, fit$m, fit$s, fit$g[groups],
+	fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
+	fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
+	mcn, approx, approx_thresh))
 }
 
