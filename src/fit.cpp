@@ -153,25 +153,25 @@ vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx,
 // Update mu using monte carlo integration to estimate the intractable integral 
 // the function is slower than update_mu_fn and gives similar results.
 // This function is not used within the main
-// [[Rcpp::export]]
-double update_mu_fn_2(const vec &m, const mat &xtx, const vec &yx, const vec &mu, 
-	const vec &s, const vec &g, const double sigma, const double lambda, 
-	const uvec &G, const uvec &Gc, const uword mcn)
-{
-    const double sigma_s = pow(sigma, -2.0);
-    double mci = 0.0;
-    for (uword iter = 0; iter < mcn; ++iter) {
-	mci += norm(arma::randn(size(m)) % s(G) + m, 2);
-    }
-    mci = mci / static_cast<double>(mcn);
+//
+// double update_mu_fn_2(const vec &m, const mat &xtx, const vec &yx, const vec &mu, 
+// 	const vec &s, const vec &g, const double sigma, const double lambda, 
+// 	const uvec &G, const uvec &Gc, const uword mcn)
+// {
+//     const double sigma_s = pow(sigma, -2.0);
+//     double mci = 0.0;
+//     for (uword iter = 0; iter < mcn; ++iter) {
+// 	mci += norm(arma::randn(size(m)) % s(G) + m, 2);
+//     }
+//     mci = mci / static_cast<double>(mcn);
 
-    const double res = 0.5 * sigma_s * dot(m.t() * xtx(G, G), m) + 
-	sigma_s * dot(m.t() * xtx(G, Gc), (g(Gc) % mu(Gc))) -
-	sigma_s * dot(yx(G), m) +
-	lambda * mci;
+//     const double res = 0.5 * sigma_s * dot(m.t() * xtx(G, G), m) + 
+// 	sigma_s * dot(m.t() * xtx(G, Gc), (g(Gc) % mu(Gc))) -
+// 	sigma_s * dot(yx(G), m) +
+// 	lambda * mci;
 
-    return res;
-}
+//     return res;
+// }
 
 
 // ----------------- sigma -------------------
@@ -192,7 +192,7 @@ class update_s_fn
 	    // respect to u. By the chain rule the grad is:
 	    // 
 	    // d / du = d / ds * ds / du
-	    grad = (0.5 * e_tau * diagvec(xtx(G, G)) % s -
+	    grad = (e_tau * diagvec(xtx(G, G)) % s -
 		1/s + lambda * s * pow(dot(s, s) + dot(mu(G), mu(G)), -0.5)) % s;
 
 	    return res;
