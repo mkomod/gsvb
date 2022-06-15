@@ -59,27 +59,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// update_mu_fn_2
-double update_mu_fn_2(const vec& m, const mat& xtx, const vec& yx, const vec& mu, const vec& s, const vec& g, const double sigma, const double lambda, const uvec& G, const uvec& Gc, const uword mcn);
-RcppExport SEXP _gsvb_update_mu_fn_2(SEXP mSEXP, SEXP xtxSEXP, SEXP yxSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP sigmaSEXP, SEXP lambdaSEXP, SEXP GSEXP, SEXP GcSEXP, SEXP mcnSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const vec& >::type m(mSEXP);
-    Rcpp::traits::input_parameter< const mat& >::type xtx(xtxSEXP);
-    Rcpp::traits::input_parameter< const vec& >::type yx(yxSEXP);
-    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< const vec& >::type s(sSEXP);
-    Rcpp::traits::input_parameter< const vec& >::type g(gSEXP);
-    Rcpp::traits::input_parameter< const double >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< const uvec& >::type G(GSEXP);
-    Rcpp::traits::input_parameter< const uvec& >::type Gc(GcSEXP);
-    Rcpp::traits::input_parameter< const uword >::type mcn(mcnSEXP);
-    rcpp_result_gen = Rcpp::wrap(update_mu_fn_2(m, xtx, yx, mu, s, g, sigma, lambda, G, Gc, mcn));
-    return rcpp_result_gen;
-END_RCPP
-}
 // update_s
 vec update_s(const uvec& G, const mat& xtx, const vec& mu, const vec& s, const double e_tau, const double lambda);
 RcppExport SEXP _gsvb_update_s(SEXP GSEXP, SEXP xtxSEXP, SEXP muSEXP, SEXP sSEXP, SEXP e_tauSEXP, SEXP lambdaSEXP) {
@@ -200,7 +179,6 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_gsvb_fit", (DL_FUNC) &_gsvb_fit, 17},
     {"_gsvb_update_mu", (DL_FUNC) &_gsvb_update_mu, 9},
-    {"_gsvb_update_mu_fn_2", (DL_FUNC) &_gsvb_update_mu_fn_2, 11},
     {"_gsvb_update_s", (DL_FUNC) &_gsvb_update_s, 6},
     {"_gsvb_update_g", (DL_FUNC) &_gsvb_update_g, 10},
     {"_gsvb_update_a_b_obj", (DL_FUNC) &_gsvb_update_a_b_obj, 6},

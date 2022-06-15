@@ -9,10 +9,6 @@ update_mu <- function(G, Gc, xtx, yx, mu, s, g, e_tau, lambda) {
     .Call(`_gsvb_update_mu`, G, Gc, xtx, yx, mu, s, g, e_tau, lambda)
 }
 
-update_mu_fn_2 <- function(m, xtx, yx, mu, s, g, sigma, lambda, G, Gc, mcn) {
-    .Call(`_gsvb_update_mu_fn_2`, m, xtx, yx, mu, s, g, sigma, lambda, G, Gc, mcn)
-}
-
 update_s <- function(G, xtx, mu, s, e_tau, lambda) {
     .Call(`_gsvb_update_s`, G, xtx, mu, s, e_tau, lambda)
 }
