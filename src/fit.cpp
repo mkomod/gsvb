@@ -231,7 +231,7 @@ double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 	double lambda, double w)
 {
     const double mk = G.size();
-    double res = log(w / (1.0 - w)) + mk/2.0 + e_tau * arma::dot(yx(G), mu(G)) +
+    double res = log(w / (1.0 - w)) + 0.5*mk + e_tau * arma::dot(yx(G), mu(G)) +
 	0.5 * mk * log(2.0 * M_PI) +
 	sum(log(s(G))) -
 	mk * log(2.0) - 0.5 * (mk - 1.0) * log(M_PI) - lgamma(0.5 * (mk + 1)) +
@@ -287,8 +287,8 @@ class update_a_b_fn
 		(0.5 * n + ta0 - ta) * R::trigamma(ta) +
 		(0.5 * S + tb0 - tb) * (1.0 / tb)) * ta;
 
-	    // gradient of res with respect to tau:a
-	    // by the chain rule dfdu = df/da * da/du
+	    // gradient of res with respect to tau:b
+	    // by the chain rule dfdw = df/db * db/dw
 	    const double dfdw =  (ta / tb +
 		(0.5 * n + ta0 - ta) / tb -
 		(0.5 * S + tb0 - tb) * (ta / (tb * tb)) -
