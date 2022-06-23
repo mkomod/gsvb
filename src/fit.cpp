@@ -4,8 +4,8 @@
 // [[Rcpp::export]]
 Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, 
-    vec g, bool track_elbo, const uword track_elbo_every, const unsigned int 
-    track_elbo_mcn, unsigned int niter, double tol, bool verbose)
+    vec g, bool constrained, bool track_elbo, const uword track_elbo_every, 
+    const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose)
 {
     const uword n = X.n_rows;
     const uword p = X.n_cols;
@@ -18,6 +18,16 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     
     // init
     const uvec ugroups = arma::unique(groups);
+
+    // if not constrained we are using a full covariance for S
+    std::vector<mat> Ss;
+    if (!constrained) {
+	for (uword group : ugroups) {
+	    uvec G = find(groups == group);	
+	    Ss.push_back(arma::diagmat(s(G)));
+	}
+    }
+
     vec mu_old, s_old, g_old;
     double tau_a = tau_a0, tau_b = tau_b0, e_tau = tau_a0 / tau_b0;
 
@@ -37,17 +47,31 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	{
 	    uvec G  = arma::find(groups == group);
 	    uvec Gc = arma::find(groups != group);
+	    
+	    if (constrained)
+	    {
+		mu(G) = update_mu(G, Gc, xtx, yx, mu, s(G), g, e_tau, lambda);
+		s(G)  = update_s(G, xtx, mu, s, e_tau, lambda);
+		double tg = update_g(G, Gc, xtx, yx, mu, s, g, e_tau, lambda, w);
+		for (uword j : G) g(j) = tg;
+	    } 
+	    else 
+	    {
+		mat &S = Ss.at(group);
 
-	    mu(G) = update_mu(G, Gc, xtx, yx, mu, s, g, e_tau, lambda);
-	    s(G)  = update_s(G, xtx, mu, s, e_tau, lambda);
-	    double tg = update_g(G, Gc, xtx, yx, mu, s, g, e_tau, lambda, w);
-	    for (uword j : G) g(j) = tg;
-    
+		mu(G) = update_mu(G, Gc, xtx, yx, mu, diagvec(S), g, e_tau, lambda);
+		s(G)  = update_S(G, xtx, mu, S, s(G), e_tau, lambda);
+		double tg = update_g(G, Gc, xtx, yx, mu, S, g, e_tau, lambda, w);
+		for (uword j : G) g(j) = tg;
+	    }
 	}
 	
 	// update tau_a, tau_b
-	double S = compute_S(yty, yx, xtx, groups, mu, s, g, p, false);
-	update_a_b(tau_a, tau_b, tau_a0, tau_b0, S, n);
+	double R = constrained ?
+	    compute_R(yty, yx, xtx, groups, mu, s, g, p, false) :
+	    compute_R(yty, yx, xtx, groups, mu, Ss, g, p, false);
+
+	update_a_b(tau_a, tau_b, tau_a0, tau_b0, R, n);
 
 	// check for break, print iter
 	Rcpp::checkUserInterrupt();
@@ -55,8 +79,12 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	
 	// compute the ELBO if option enabled
 	if (track_elbo && (iter % track_elbo_every == 0)) {
-	    double e = elbo(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+	    double e = constrained ?
+		elbo_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
+		elbo_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
 		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
+
 	    elbo_values.push_back(e);
 	}
 
@@ -76,7 +104,10 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     
     // compute elbo for final eval
     if (track_elbo) {
-	double e = elbo(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+	double e = constrained ?
+	    elbo_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
+	    elbo_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
 		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
 	elbo_values.push_back(e);
     }
@@ -84,6 +115,7 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     return Rcpp::List::create(
 	Rcpp::Named("mu") = mu,
 	Rcpp::Named("sigma") = s,
+	Rcpp::Named("S") = Ss,
 	Rcpp::Named("gamma") = g,
 	Rcpp::Named("tau_a") = tau_a,
 	Rcpp::Named("tau_b") = tau_b,
@@ -92,7 +124,6 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	Rcpp::Named("elbo") = elbo_values
     );
 }
-
 
 
 // ----------------- mu -------------------
@@ -111,12 +142,12 @@ class update_mu_fn
 	    const double res = 0.5 * e_tau * dot(m.t() * xtx(G, G), m) + 
 		e_tau * dot(m.t() * xtx(G, Gc), (g(Gc) % mu(Gc))) -
 		e_tau * dot(yx(G), m) +
-		lambda * pow(dot(s(G), s(G)) + dot(m, m), 0.5);
+		lambda * pow(dot(s, s) + dot(m, m), 0.5);
 
 	    grad = e_tau * xtx(G, G) * m + 
 		e_tau * xtx(G, Gc) * (g(Gc) % mu(Gc)) -
 		e_tau * yx(G) +
-		lambda * m * pow(dot(s(G), s(G)) + dot(m, m), -0.5);
+		lambda * m * pow(dot(s, s) + dot(m, m), -0.5);
 
 	    return res;
 	}
@@ -134,7 +165,6 @@ class update_mu_fn
 };
 
 
-// [[Rcpp::export]]
 vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx, 
 	const vec &yx, const vec &mu, const vec &s, const vec &g, 
 	const double e_tau, const double lambda)
@@ -207,7 +237,6 @@ class update_s_fn
 };
 
 
-// [[Rcpp::export]]
 vec update_s(const uvec &G, const mat &xtx, const vec &mu, 
 	const vec &s, const double e_tau, const double lambda)
 {
@@ -224,8 +253,57 @@ vec update_s(const uvec &G, const mat &xtx, const vec &mu,
 }
 
 
+// ----------------- S -------------------
+class update_S_fn
+{
+    public:
+	update_S_fn(const uvec &G, const mat &xtx, const vec &mu, 
+		const double e_tau, const double lambda) :
+	    G(G), xtx(xtx), mu(mu), e_tau(e_tau), lambda(lambda) { }
+
+	double EvaluateWithGradient(const arma::mat &w, arma::mat &grad) {
+	    const mat psi = xtx(G, G);
+	    const mat S = arma::inv(e_tau * psi + arma::diagmat(w));
+	    const vec ds = arma::diagvec(S);
+
+	    const double res = 0.5 * e_tau * arma::trace(psi * S) -
+		0.5 * log(arma::det(S)) + 
+		lambda * pow(dot(ds, ds) + dot(mu(G), mu(G)), 0.5);
+
+	    // gradient wrt. w
+	    double tw = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
+	    grad = 0.5 * (S % S) * (w - 2.0 * tw);
+
+	    return res;
+	}
+
+    private:
+	const uvec &G;
+	const mat &xtx;
+	const vec &mu;
+	const double e_tau;
+	const double lambda;
+};
+
+
+vec update_S(const uvec &G, const mat &xtx, const vec &mu, 
+	mat &S, vec s, const double e_tau, const double lambda)
+{
+    ens::L_BFGS opt;
+    update_S_fn fn(G, xtx, mu, e_tau, lambda);
+    opt.MaxIterations() = 8;
+    
+    // we are using the relationship s = exp(u) to
+    // for s to be positive everywhere
+    opt.Optimize(fn, s);
+
+    // update S
+    S = arma::inv(e_tau * xtx(G, G) + diagmat(s)); 
+    return s;
+}
+
+
 // ----------------- gamma -------------------
-// [[Rcpp::export]]
 double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 	const vec &yx, const vec &mu, const vec &s, const vec &g, double e_tau,
 	double lambda, double w)
@@ -245,20 +323,35 @@ double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 }
 
 
-// ----------------- tau ---------------------
-// Note: optimizing a and b seperatley does not work
-// Instead tau:a and tau:b are optimized together
-//
+double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
+	const vec &yx, const vec &mu, const mat &S, const vec &g, double e_tau,
+	double lambda, double w)
+{
+    const double mk = G.size();
+    vec diag_S = diagvec(S);
+    double res = log(w / (1.0 - w)) + 0.5*mk + e_tau * arma::dot(yx(G), mu(G)) +
+	0.5 * log(det(2.0 * M_PI * S)) +
+	mk * log(2.0) - 0.5 * (mk - 1.0) * log(M_PI) - lgamma(0.5 * (mk + 1)) + // log(Ck)
+	mk * log(lambda) - 
+	lambda * sqrt(sum(diag_S % diag_S) + sum(mu(G) % mu(G))) -
+	0.5 * e_tau * accu(xtx(G, G) % S) -
+	0.5 * e_tau * dot(mu(G).t() * xtx(G, G), mu(G)) -
+	e_tau * dot(mu(G).t() * xtx(G, Gc), g(Gc) % mu(Gc));
 
+    return sigmoid(res);
+}
+
+
+// ----------------- tau ---------------------
 // Used for testing and not directly used within the C++
 // implementation.
 // [[Rcpp::export]]
 double update_a_b_obj(const double ta, const double tb, const double ta0,
-	const double tb0, const double S, const double n) 
+	const double tb0, const double R, const double n) 
 {
     double res = ta * log(tb) - R::lgammafn(ta) +
 	(0.5 * n + ta0 - ta) * (log(tb) - R::digamma(ta)) +
-	(0.5 * S + tb0 - tb) * (ta / tb);
+	(0.5 * R + tb0 - tb) * (ta / tb);
     return res;
 }
 
@@ -266,9 +359,9 @@ double update_a_b_obj(const double ta, const double tb, const double ta0,
 class update_a_b_fn
 {
     public:
-	update_a_b_fn(const double ta0, const double tb0, const double S, 
+	update_a_b_fn(const double ta0, const double tb0, const double R,
 		const double n) :
-	    ta0(ta0), tb0(tb0), S(S), n(n) { }
+	    ta0(ta0), tb0(tb0), R(R), n(n) { }
 
 	double EvaluateWithGradient(const arma::mat &pars, arma::mat &grad) 
 	{
@@ -278,20 +371,20 @@ class update_a_b_fn
 
 	    const double res = ta * log(tb) - R::lgammafn(ta) +
 		(0.5 * n + ta0 - ta) * (log(tb) - R::digamma(ta)) +
-		(0.5 * S + tb0 - tb) * (ta / tb);
+		(0.5 * R + tb0 - tb) * (ta / tb);
 	    
 	    // gradient of res with respect to tau:a
 	    // by the chain rule dfdu = df/da * da/du
 	    const double dfdu = (log(tb) - R::digamma(ta) -
 		(log(tb) - R::digamma(ta)) -
 		(0.5 * n + ta0 - ta) * R::trigamma(ta) +
-		(0.5 * S + tb0 - tb) * (1.0 / tb)) * ta;
+		(0.5 * R + tb0 - tb) * (1.0 / tb)) * ta;
 
 	    // gradient of res with respect to tau:b
 	    // by the chain rule dfdw = df/db * db/dw
 	    const double dfdw =  (ta / tb +
 		(0.5 * n + ta0 - ta) / tb -
-		(0.5 * S + tb0 - tb) * (ta / (tb * tb)) -
+		(0.5 * R + tb0 - tb) * (ta / (tb * tb)) -
 		(ta / tb)) * tb;
 	    
 	    // save the grad
@@ -304,17 +397,17 @@ class update_a_b_fn
     private:
 	const double ta0;
 	const double tb0;
-	const double S;
+	const double R;
 	const double n;
 };
 
 
 // [[Rcpp::export]]
 void update_a_b(double &tau_a, double &tau_b, const double tau_a0,
-	const double tau_b0, const double S, const double n)
+	const double tau_b0, const double R, const double n)
 {
     ens::L_BFGS opt(50, 1000); // (numBasis, maxIterations)
-    update_a_b_fn fn(tau_a0, tau_b0, S, n);
+    update_a_b_fn fn(tau_a0, tau_b0, R, n);
     
     mat pars = mat(2, 1, arma::fill::zeros);
 
@@ -342,11 +435,9 @@ void update_a_b(double &tau_a, double &tau_b, const double tau_a0,
 // where Q: variational family, Pi: prior, Pi_D: model evidence
 // l(D; beta): likelihood
 //
-// TODO: TEST THIS FUNCTION 
 // TEST WRITTEN: [ ]
-
 // [[Rcpp::export]]
-double elbo(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+double elbo_c(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	const uword n, const uword p, const vec &mu, const vec &s, const vec &g,
 	const double tau_a, const double tau_b, const double lambda, 
 	const double a0, const double b0, const double tau_a0, 
@@ -357,13 +448,13 @@ double elbo(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
     const double e_tau = tau_a / tau_b;
 
     double res = 0.0;
-    const double S = compute_S(yty, yx, xtx, groups, mu, s, g, p, 
+    const double R = compute_R(yty, yx, xtx, groups, mu, s, g, p, 
 	    approx, approx_thresh);
 
     res += -0.5 * n * log(2 * M_PI) - 
 	0.5 * n * (log(tau_b) + R::digamma(tau_a)) -
 	0.5 * e_tau * yty -			// yty := <y, y>
-	0.5 * e_tau * S +			// S := (X'X)_ij E[b_i b_j]
+	0.5 * e_tau * R +			// S := (X'X)_ij E[b_i b_j]
 	e_tau * dot(yx, g % mu) +		// yx := X'y
 	0.5 * sum(g % log(2 * M_PI * pow(s, 2.0)));
     
@@ -380,7 +471,7 @@ double elbo(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	res += g(k) * Ck +
 	    0.5 * g(k) * mk +
 	    g(k) * mk * log(lambda) -
-	    g(k) * log((1e-8 + g(k)) / (1e-8 + w)) -
+	    g(k) * log((1e-8 + g(k)) / (1e-8 + w)) -	// add 1e-8 to prevent -Inf
 	    (1 - g(k)) * log((1-g(k) + 1e-8) / (1 - w));
 	
 	// Compute the Monte-Carlo integral of E_Q [ lambda * || b_{G_k} || ]
@@ -401,56 +492,134 @@ double elbo(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
     return(res);
 }
 
+// un-constrained
+double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+	const uword n, const uword p, const vec &mu, const std::vector<mat> &Ss, 
+	const vec &g, const double tau_a, const double tau_b, const double lambda,
+	const double a0, const double b0, const double tau_a0, const double tau_b0, 
+	const uword mcn, const bool approx, const double approx_thresh)
+{
+    const double w = a0 / (a0 + b0);
+    const double e_tau = tau_a / tau_b;
 
-// ------------ compute S -------------
+    double res = 0.0;
+    const double R = compute_R(yty, yx, xtx, groups, mu, Ss, g, p, 
+	    approx, approx_thresh);
+
+    res += -0.5 * n * log(2 * M_PI) - 
+	0.5 * n * (log(tau_b) + R::digamma(tau_a)) -
+	0.5 * e_tau * yty -			// yty := <y, y>
+	0.5 * e_tau * R +			// S := (X'X)_ij E[b_i b_j]
+	e_tau * dot(yx, g % mu);		// yx := X'y
+
+    
+    // compute the terms that depend on gamma_k
+    for (uword group : unique(groups).eval()) 
+    {
+	uvec G = find(groups == group);	// indices of group members 
+	uword k = G(0);
+	double mk = G.size();
+	mat S = Ss.at(group);
+	
+	// Normalization const, Ck: double exp, Sk: multivariate norm
+	double Ck = -mk*log(2.0) - 0.5*(mk-1.0)*log(M_PI) - lgamma(0.5*(mk+1));
+	double Sk = 0.5 * log(arma::det(2 * M_PI * S));
+
+	res += g(k) * Sk + 
+	    g(k) * Ck +
+	    0.5 * g(k) * mk +
+	    g(k) * mk * log(lambda) -
+	    g(k) * log((1e-8 + g(k)) / (1e-8 + w)) -	// add 1e-8 to prevent -Inf
+	    (1 - g(k)) * log((1-g(k) + 1e-8) / (1 - w));
+	
+	// Compute the Monte-Carlo integral of E_Q [ lambda * || b_{G_k} || ]
+	double mci = 0.0;
+	for (uword iter = 0; iter < mcn; ++iter) {
+	    // X ~ N(0, I)
+	    // Y = S^1/2 X + mu => Y ~ N(mu, S)
+	    mci += norm(sqrtmat(S) * arma::randn(mk) + mu(G), 2);
+	}
+	mci = mci / static_cast<double>(mcn);
+
+	res -= lambda * g(k) * mci;
+    }
+
+    // compute the expected value of E_G^-1 [ log dG^-1(a', b') / dG^-1(a, b)]
+    res += tau_a * log(tau_b) - tau_a0 * log(tau_b0) + R::lgammafn(tau_a0)
+	- R::lgammafn(tau_a) + (tau_a0 - tau_a)*(log(tau_b) + R::digamma(tau_a)) +
+	(tau_b0 - tau_b) * tau_a / tau_b;
+
+    return(res);
+}
+
+
+// ------------ compute R -------------
 //
-// S := E [ | y - Xb |^2 ]		(the expected residuals)
+// R := E [ | y - Xb |^2 ]		(the expected residuals)
 //    = <y, y> - 2 <yx, g o mu> + S_i S_j xtx_ij E[b_i b_j]
 // where S_i: sum over i, o: elementwise product
 //
 // Used in the ELBO and in the opt of tau:a, taub
-//
-inline void compute_xtx_bi_bj(double &xtx_bi_bj, const uword i, const uword j, 
-	const mat &xtx, const uvec &groups, const vec &mu, const vec &s, const vec &g)
-{
-    if (i == j) {
-	xtx_bi_bj += (xtx(i, i) * g(i) * (s(i) * s(i) + mu(i) * mu(i)));
-    }
-
-    if ((i != j) && (groups(i) == groups(j))) {
-	xtx_bi_bj += (xtx(i, j) * g(i) * mu(i) * mu(j));
-    }
-
-    if ((i != j) && (groups(i) != groups(j))) {
-	xtx_bi_bj += (xtx(i, j) * g(i) * g(j) * mu(i) * mu(j));
-    }
-}
-
-
-// [[Rcpp::export]]
-double compute_S(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
-	const vec &mu, const vec &s, const vec &g, const uword p, const bool approx,
+double compute_R(const double yty, const vec &yx, const mat &xtx,
+	const uvec &groups, const vec &mu, const std::vector<mat> &Ss, 
+	const vec &g, const uword p, const bool approx, 
 	const double approx_thresh) 
 {
-    double xtx_bi_bj = 0.0;
-    double a = 0.0, b = 0.0, c = 0.0;
+    // indices to sum over, if approx, then indx = g >= threshold
+    const uvec indx = approx ? 
+	find(g >= approx_thresh) : arma::regspace<uvec>(0, p-1);
 
-    if (approx) {
-	const uvec g_i = arma::find(g >= approx_thresh);
-	for (uword i : g_i) {
-	    for (uword j : g_i) {
-		compute_xtx_bi_bj(xtx_bi_bj, i, j, xtx, groups, mu, s, g);
-	    }
-	}
-    } else {
-	for (uword i = 0; i < p; ++i) {
-	    for (uword j = 0; j < p; ++j) {
-		compute_xtx_bi_bj(xtx_bi_bj, i, j, xtx, groups, mu, s, g);
+    double xtx_bi_bj = 0.0;
+
+    for (uword i : indx) {
+	uword group_i = groups(i);
+	uword min_indx = min(find(groups == group_i));
+
+	for (uword j : indx) {
+	    uword group_j = groups(j);
+
+	    if (group_i == group_j) {
+		double S_ij = Ss.at(group_i)(i - min_indx, j - min_indx);
+		xtx_bi_bj += (xtx(i, j) * g(i) * (S_ij + mu(i) * mu(j)));
+	    } else {
+		xtx_bi_bj += (xtx(i, j) * g(i) * g(j) * mu(i) * mu(j));
 	    }
 	}
     }
 
-    double S = yty + xtx_bi_bj - 2.0 * dot(yx, g % mu);
-    return S;
+    double R = yty + xtx_bi_bj - 2.0 * dot(yx, g % mu);
+    return R;
 }
 
+
+double compute_R(const double yty, const vec &yx, const mat &xtx, 
+	const uvec &groups, const vec &mu, const vec &s, const vec &g, 
+	const uword p, const bool approx, const double approx_thresh) 
+{
+    // indices to sum over, if approx, then indx = g >= threshold
+    const uvec indx = approx ? 
+	find(g >= approx_thresh) : arma::regspace<uvec>(0, p-1);
+
+    double xtx_bi_bj = 0.0;
+
+    for (uword i : indx) {
+	uword group_i = groups(i);
+
+	for (uword j : indx) {
+	    uword group_j = groups(j);
+
+	    if (i == j) {
+		xtx_bi_bj += (xtx(i, i) * g(i) * (s(i) * s(i) + mu(i) * mu(i)));
+	    }
+	    if ((i != j) && (group_i == group_j)) {
+		xtx_bi_bj += (xtx(i, j) * g(i) * mu(i) * mu(j));
+	    }
+	    if ((i != j) && (group_i != group_j)) {
+		xtx_bi_bj += (xtx(i, j) * g(i) * g(j) * mu(i) * mu(j));
+	    }
+	}
+    }
+
+    double R = yty + xtx_bi_bj - 2.0 * dot(yx, g % mu);
+    return R;
+}
