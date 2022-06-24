@@ -4,6 +4,7 @@
 #' @param X input matrix.
 #' @param groups group structure.
 #' @param intercept should an intercept term be included.
+#' @param indp_covaraince should the covaraince matrix used in the variational approximation of the groups be diagonal. Note: if true then covariance matrices for each group are returned, if false thenn the **standard deviations** are returned.
 #' @param lambda penalization hyperparameter for the multivariate exponential prior.
 #' @param a0 shape parameter for the Beta(a0, b0) mixing prior.
 #' @param b0 shape parameter for the Beta(a0, b0) mixing prior.
@@ -21,7 +22,7 @@
 #' 
 #' @return The program output is a list containing:
 #' \item{mu}{the means for the variational posterior.}
-#' \item{s}{the std. dev. for the variational posterior.}
+#' \item{s}{the std. dev. or covaraince matrices for the variational posterior.}
 #' \item{g}{the group inclusion probabilities.}
 #' \item{beta_hat}{the variational posterior mean.}
 #' \item{tau_hat}{the mean of the variance term.}
@@ -50,12 +51,24 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, intercept=TRUE, 
+gsvb.fit <- function(y, X, groups, intercept=TRUE, indp_covaraince=FALSE,
     lambda=1, a0=1, b0=length(unique(groups)), tau_a0=1e-3, tau_b0=1e-3,
     mu=NULL, s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
-    track_elbo_mcn=1e4, niter=150, tol=1e-3, verbose=TRUE) 
+    track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE) 
 {
+    # check user input
+    if (min(groups) != 1) 
+	stop("group labels must start at 1")
+    if (max(groups) != length(unique(groups)))
+	stop("group labels must not exceed the unique number of groups")
+    if (!all(groups == rep(unique(groups), table(groups))))
+	stop("groups must be ordered")
+    if (!is.matrix(X))
+	stop("X must be a matrix")
+    if (any(c(lambda, a0, b0, tau_a0, tau_b0) <= 0))
+	stop("Hyperparameters must be greater than 0")
+
     # pre-processing
     if (intercept) {
 	groups <- c(min(groups) - 1, groups) + 1
@@ -69,34 +82,33 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE,
 	    g <- c(0.5, g)
     }
     
-    group.order <- order(groups)
-    groups <- groups[group.order]
-    X <- X[ , group.order]
-    
     if (is.null(mu)) {
 	# Note: the intercept is handled by adding a column of 1s to the
-	# design matrix X
+	# design matrix X and is therefore disabled for gglasso
 	glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
+
+	# take mu as the estimate for smallest reg parameter
 	mu <- glfit$beta[ , length(glfit$lambda)]
     }
 
     # run algorithm
-    f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, 
-	track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
-
-    # re-order to match input order
-    mu <- f$mu[group.order]
-    s <-  f$s[group.order]
-    g <-  f$g[group.order]
+    if (indp_covaraince) {
+	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, indp_covaraince,
+	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
+    } else {
+	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, indp_covaraince,
+	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
+	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
+    }
 
     ta <- f$tau_a
     tb <- f$tau_b
    
     res <- list(
-	mu = mu,
-	s = s,
-	g = g[!duplicated(groups)],
-	beta_hat = mu * g,
+	mu = f$mu,
+	s = f$s,
+	g = f$g[!duplicated(groups)],
+	beta_hat = f$mu * f$g,
 	tau_hat = tb / (ta - 1),
 	tau_a = ta,
 	tau_b = tb,
