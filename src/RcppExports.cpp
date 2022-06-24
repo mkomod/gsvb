@@ -14,8 +14,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // fit
-Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool constrained, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose);
-RcppExport SEXP _gsvb_fit(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP constrainedSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
+Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose);
+RcppExport SEXP _gsvb_fit(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -30,51 +30,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< vec >::type mu(muSEXP);
     Rcpp::traits::input_parameter< vec >::type s(sSEXP);
     Rcpp::traits::input_parameter< vec >::type g(gSEXP);
-    Rcpp::traits::input_parameter< bool >::type constrained(constrainedSEXP);
+    Rcpp::traits::input_parameter< bool >::type diag_cov(diag_covSEXP);
     Rcpp::traits::input_parameter< bool >::type track_elbo(track_elboSEXP);
     Rcpp::traits::input_parameter< const uword >::type track_elbo_every(track_elbo_everySEXP);
     Rcpp::traits::input_parameter< const uword >::type track_elbo_mcn(track_elbo_mcnSEXP);
     Rcpp::traits::input_parameter< unsigned int >::type niter(niterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, constrained, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
+    rcpp_result_gen = Rcpp::wrap(fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
-// update_a_b_obj
-double update_a_b_obj(const double ta, const double tb, const double ta0, const double tb0, const double R, const double n);
-RcppExport SEXP _gsvb_update_a_b_obj(SEXP taSEXP, SEXP tbSEXP, SEXP ta0SEXP, SEXP tb0SEXP, SEXP RSEXP, SEXP nSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const double >::type ta(taSEXP);
-    Rcpp::traits::input_parameter< const double >::type tb(tbSEXP);
-    Rcpp::traits::input_parameter< const double >::type ta0(ta0SEXP);
-    Rcpp::traits::input_parameter< const double >::type tb0(tb0SEXP);
-    Rcpp::traits::input_parameter< const double >::type R(RSEXP);
-    Rcpp::traits::input_parameter< const double >::type n(nSEXP);
-    rcpp_result_gen = Rcpp::wrap(update_a_b_obj(ta, tb, ta0, tb0, R, n));
-    return rcpp_result_gen;
-END_RCPP
-}
-// update_a_b
-void update_a_b(double& tau_a, double& tau_b, const double tau_a0, const double tau_b0, const double R, const double n);
-RcppExport SEXP _gsvb_update_a_b(SEXP tau_aSEXP, SEXP tau_bSEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP RSEXP, SEXP nSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< double& >::type tau_a(tau_aSEXP);
-    Rcpp::traits::input_parameter< double& >::type tau_b(tau_bSEXP);
-    Rcpp::traits::input_parameter< const double >::type tau_a0(tau_a0SEXP);
-    Rcpp::traits::input_parameter< const double >::type tau_b0(tau_b0SEXP);
-    Rcpp::traits::input_parameter< const double >::type R(RSEXP);
-    Rcpp::traits::input_parameter< const double >::type n(nSEXP);
-    update_a_b(tau_a, tau_b, tau_a0, tau_b0, R, n);
-    return R_NilValue;
-END_RCPP
-}
-// elbo_c
-double elbo_c(const double yty, const vec& yx, const mat& xtx, const uvec& groups, const uword n, const uword p, const vec& mu, const vec& s, const vec& g, const double tau_a, const double tau_b, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, const uword mcn, const bool approx, const double approx_thresh);
-RcppExport SEXP _gsvb_elbo_c(SEXP ytySEXP, SEXP yxSEXP, SEXP xtxSEXP, SEXP groupsSEXP, SEXP nSEXP, SEXP pSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP tau_aSEXP, SEXP tau_bSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP mcnSEXP, SEXP approxSEXP, SEXP approx_threshSEXP) {
+// elbo_linear_c
+double elbo_linear_c(const double yty, const vec& yx, const mat& xtx, const uvec& groups, const uword n, const uword p, const vec& mu, const vec& s, const vec& g, const double tau_a, const double tau_b, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, const uword mcn, const bool approx, const double approx_thresh);
+RcppExport SEXP _gsvb_elbo_linear_c(SEXP ytySEXP, SEXP yxSEXP, SEXP xtxSEXP, SEXP groupsSEXP, SEXP nSEXP, SEXP pSEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP tau_aSEXP, SEXP tau_bSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP mcnSEXP, SEXP approxSEXP, SEXP approx_threshSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -97,16 +66,44 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const uword >::type mcn(mcnSEXP);
     Rcpp::traits::input_parameter< const bool >::type approx(approxSEXP);
     Rcpp::traits::input_parameter< const double >::type approx_thresh(approx_threshSEXP);
-    rcpp_result_gen = Rcpp::wrap(elbo_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b, lambda, a0, b0, tau_a0, tau_b0, mcn, approx, approx_thresh));
+    rcpp_result_gen = Rcpp::wrap(elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b, lambda, a0, b0, tau_a0, tau_b0, mcn, approx, approx_thresh));
+    return rcpp_result_gen;
+END_RCPP
+}
+// elbo_linear_u
+double elbo_linear_u(const double yty, const vec& yx, const mat& xtx, const uvec& groups, const uword n, const uword p, const vec& mu, const std::vector<mat>& Ss, const vec& g, const double tau_a, const double tau_b, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, const uword mcn, const bool approx, const double approx_thresh);
+RcppExport SEXP _gsvb_elbo_linear_u(SEXP ytySEXP, SEXP yxSEXP, SEXP xtxSEXP, SEXP groupsSEXP, SEXP nSEXP, SEXP pSEXP, SEXP muSEXP, SEXP SsSEXP, SEXP gSEXP, SEXP tau_aSEXP, SEXP tau_bSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP mcnSEXP, SEXP approxSEXP, SEXP approx_threshSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const double >::type yty(ytySEXP);
+    Rcpp::traits::input_parameter< const vec& >::type yx(yxSEXP);
+    Rcpp::traits::input_parameter< const mat& >::type xtx(xtxSEXP);
+    Rcpp::traits::input_parameter< const uvec& >::type groups(groupsSEXP);
+    Rcpp::traits::input_parameter< const uword >::type n(nSEXP);
+    Rcpp::traits::input_parameter< const uword >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const std::vector<mat>& >::type Ss(SsSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type g(gSEXP);
+    Rcpp::traits::input_parameter< const double >::type tau_a(tau_aSEXP);
+    Rcpp::traits::input_parameter< const double >::type tau_b(tau_bSEXP);
+    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< const double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< const double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< const double >::type tau_a0(tau_a0SEXP);
+    Rcpp::traits::input_parameter< const double >::type tau_b0(tau_b0SEXP);
+    Rcpp::traits::input_parameter< const uword >::type mcn(mcnSEXP);
+    Rcpp::traits::input_parameter< const bool >::type approx(approxSEXP);
+    Rcpp::traits::input_parameter< const double >::type approx_thresh(approx_threshSEXP);
+    rcpp_result_gen = Rcpp::wrap(elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b, lambda, a0, b0, tau_a0, tau_b0, mcn, approx, approx_thresh));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_gsvb_fit", (DL_FUNC) &_gsvb_fit, 18},
-    {"_gsvb_update_a_b_obj", (DL_FUNC) &_gsvb_update_a_b_obj, 6},
-    {"_gsvb_update_a_b", (DL_FUNC) &_gsvb_update_a_b, 6},
-    {"_gsvb_elbo_c", (DL_FUNC) &_gsvb_elbo_c, 19},
+    {"_gsvb_elbo_linear_c", (DL_FUNC) &_gsvb_elbo_linear_c, 19},
+    {"_gsvb_elbo_linear_u", (DL_FUNC) &_gsvb_elbo_linear_u, 19},
     {NULL, NULL, 0}
 };
 

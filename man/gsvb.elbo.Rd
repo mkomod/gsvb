@@ -4,15 +4,7 @@
 \alias{gsvb.elbo}
 \title{Compute the Evidence Lower Bound (ELBO)}
 \usage{
-gsvb.elbo(
-  fit,
-  y,
-  X,
-  groups,
-  mcn = 10000,
-  approx = FALSE,
-  approx_thresh = 0.001
-)
+gsvb.elbo(fit, y, X, groups, mcn = 500, approx = FALSE, approx_thresh = 0.001)
 }
 \arguments{
 \item{fit}{the fit model.}
