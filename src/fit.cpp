@@ -57,9 +57,11 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	    } 
 	    else 
 	    {
-		mat &S = Ss.at(group);
+		// get the index of the group
+		uword gi = arma::find(ugroups == group).eval().at(0);
+		mat &S = Ss.at(gi);
 
-		mu(G) = update_mu(G, Gc, xtx, yx, mu, diagvec(S), g, e_tau, lambda);
+		mu(G) = update_mu(G, Gc, xtx, yx, mu, sqrt(diagvec(S)), g, e_tau, lambda);
 		s(G)  = update_S(G, xtx, mu, S, s(G), e_tau, lambda);
 		double tg = update_g(G, Gc, xtx, yx, mu, S, g, e_tau, lambda, w);
 		for (uword j : G) g(j) = tg;
@@ -268,7 +270,7 @@ class update_S_fn
 
 	    const double res = 0.5 * e_tau * arma::trace(psi * S) -
 		0.5 * log(arma::det(S)) + 
-		lambda * pow(dot(ds, ds) + dot(mu(G), mu(G)), 0.5);
+		lambda * pow(sum(ds) + dot(mu(G), mu(G)), 0.5);
 
 	    // gradient wrt. w
 	    double tw = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
@@ -333,7 +335,7 @@ double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 	0.5 * log(det(2.0 * M_PI * S)) +
 	mk * log(2.0) - 0.5 * (mk - 1.0) * log(M_PI) - lgamma(0.5 * (mk + 1)) + // log(Ck)
 	mk * log(lambda) - 
-	lambda * sqrt(sum(diag_S % diag_S) + sum(mu(G) % mu(G))) -
+	lambda * sqrt(sum(diag_S) + sum(mu(G) % mu(G))) -
 	0.5 * e_tau * accu(xtx(G, G) % S) -
 	0.5 * e_tau * dot(mu(G).t() * xtx(G, G), mu(G)) -
 	e_tau * dot(mu(G).t() * xtx(G, Gc), g(Gc) % mu(Gc));
@@ -499,6 +501,7 @@ double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &group
 	const double a0, const double b0, const double tau_a0, const double tau_b0, 
 	const uword mcn, const bool approx, const double approx_thresh)
 {
+    const uvec ugroups = unique(groups);
     const double w = a0 / (a0 + b0);
     const double e_tau = tau_a / tau_b;
 
@@ -519,7 +522,10 @@ double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &group
 	uvec G = find(groups == group);	// indices of group members 
 	uword k = G(0);
 	double mk = G.size();
-	mat S = Ss.at(group);
+	
+	// get index of group
+	uword group_index = find(ugroups == group).eval().at(0);
+	mat S = Ss.at(group_index);
 	
 	// Normalization const, Ck: double exp, Sk: multivariate norm
 	double Ck = -mk*log(2.0) - 0.5*(mk-1.0)*log(M_PI) - lgamma(0.5*(mk+1));
@@ -569,17 +575,19 @@ double compute_R(const double yty, const vec &yx, const mat &xtx,
     const uvec indx = approx ? 
 	find(g >= approx_thresh) : arma::regspace<uvec>(0, p-1);
 
+    const uvec ugroups = unique(groups);
     double xtx_bi_bj = 0.0;
 
     for (uword i : indx) {
 	uword group_i = groups(i);
+	uword gi_indx = find(group_i == ugroups).eval().at(0);
 	uword min_indx = min(find(groups == group_i));
 
 	for (uword j : indx) {
 	    uword group_j = groups(j);
 
 	    if (group_i == group_j) {
-		double S_ij = Ss.at(group_i)(i - min_indx, j - min_indx);
+		double S_ij = Ss.at(gi_indx)(i - min_indx, j - min_indx);
 		xtx_bi_bj += (xtx(i, j) * g(i) * (S_ij + mu(i) * mu(j)));
 	    } else {
 		xtx_bi_bj += (xtx(i, j) * g(i) * g(j) * mu(i) * mu(j));
