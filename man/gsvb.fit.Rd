@@ -9,7 +9,7 @@ gsvb.fit(
   X,
   groups,
   intercept = TRUE,
-  indp_covaraince = FALSE,
+  diag_covariance = TRUE,
   lambda = 1,
   a0 = 1,
   b0 = length(unique(groups)),
@@ -35,7 +35,7 @@ gsvb.fit(
 
 \item{intercept}{should an intercept term be included.}
 
-\item{indp_covaraince}{should the covaraince matrix used in the variational approximation of the groups be diagonal. Note: if true then covariance matrices for each group are returned, if false thenn the **standard deviations** are returned.}
+\item{diag_covariance}{should the covariance matrix used in the variational approximation be diagonal. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.}
 
 \item{lambda}{penalization hyperparameter for the multivariate exponential prior.}
 

@@ -4,7 +4,7 @@
 #' @param X input matrix.
 #' @param groups group structure.
 #' @param intercept should an intercept term be included.
-#' @param indp_covaraince should the covaraince matrix used in the variational approximation of the groups be diagonal. Note: if true then covariance matrices for each group are returned, if false thenn the **standard deviations** are returned.
+#' @param diag_covariance should the covariance matrix used in the variational approximation be diagonal. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
 #' @param lambda penalization hyperparameter for the multivariate exponential prior.
 #' @param a0 shape parameter for the Beta(a0, b0) mixing prior.
 #' @param b0 shape parameter for the Beta(a0, b0) mixing prior.
@@ -51,7 +51,7 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, intercept=TRUE, indp_covaraince=FALSE,
+gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
     lambda=1, a0=1, b0=length(unique(groups)), tau_a0=1e-3, tau_b0=1e-3,
     mu=NULL, s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
@@ -92,11 +92,11 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE, indp_covaraince=FALSE,
     }
 
     # run algorithm
-    if (indp_covaraince) {
-	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, indp_covaraince,
+    if (diag_covariance) {
+	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
 	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
     } else {
-	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, indp_covaraince,
+	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
 	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
 	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
     }
