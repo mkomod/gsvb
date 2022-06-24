@@ -9,6 +9,7 @@ gsvb.fit(
   X,
   groups,
   intercept = TRUE,
+  indp_covaraince = FALSE,
   lambda = 1,
   a0 = 1,
   b0 = length(unique(groups)),
@@ -19,7 +20,7 @@ gsvb.fit(
   g = rep(0.5, ncol(X)),
   track_elbo = TRUE,
   track_elbo_every = 5,
-  track_elbo_mcn = 10000,
+  track_elbo_mcn = 500,
   niter = 150,
   tol = 0.001,
   verbose = TRUE
@@ -33,6 +34,8 @@ gsvb.fit(
 \item{groups}{group structure.}
 
 \item{intercept}{should an intercept term be included.}
+
+\item{indp_covaraince}{should the covaraince matrix used in the variational approximation of the groups be diagonal. Note: if true then covariance matrices for each group are returned, if false thenn the **standard deviations** are returned.}
 
 \item{lambda}{penalization hyperparameter for the multivariate exponential prior.}
 
@@ -65,7 +68,7 @@ gsvb.fit(
 \value{
 The program output is a list containing:
 \item{mu}{the means for the variational posterior.}
-\item{s}{the std. dev. for the variational posterior.}
+\item{s}{the std. dev. or covaraince matrices for the variational posterior.}
 \item{g}{the group inclusion probabilities.}
 \item{beta_hat}{the variational posterior mean.}
 \item{tau_hat}{the mean of the variance term.}
