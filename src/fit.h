@@ -36,14 +36,14 @@ double compute_R(const double yty, const vec &yx, const mat &xtx,
 	const vec &g, const uword p, const bool approx, 
 	const double approx_thresh=1e-3);
 
-double elbo_c(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+double elbo_linear_c(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	const uword n, const uword p, const vec &mu, const vec &s, const vec &g,
 	const double tau_a, const double tau_b, const double lambda, 
 	const double a0, const double b0, const double tau_a0, 
 	const double tau_b0, const uword mcn, const bool approx, 
 	const double approx_thresh=1e-3);
 
-double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+double elbo_linear_u(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	const uword n, const uword p, const vec &mu, const std::vector<mat> &Ss, 
 	const vec &g, const double tau_a, const double tau_b, const double lambda,
 	const double a0, const double b0, const double tau_a0, const double tau_b0, 

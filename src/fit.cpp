@@ -4,7 +4,7 @@
 // [[Rcpp::export]]
 Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, 
-    vec g, bool constrained, bool track_elbo, const uword track_elbo_every, 
+    vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, 
     const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose)
 {
     const uword n = X.n_rows;
@@ -21,7 +21,7 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 
     // if not constrained we are using a full covariance for S
     std::vector<mat> Ss;
-    if (!constrained) {
+    if (!diag_cov) {
 	for (uword group : ugroups) {
 	    uvec G = find(groups == group);	
 	    Ss.push_back(arma::diagmat(s(G)));
@@ -48,7 +48,7 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	    uvec G  = arma::find(groups == group);
 	    uvec Gc = arma::find(groups != group);
 	    
-	    if (constrained)
+	    if (diag_cov)
 	    {
 		mu(G) = update_mu(G, Gc, xtx, yx, mu, s(G), g, e_tau, lambda);
 		s(G)  = update_s(G, xtx, mu, s, e_tau, lambda);
@@ -69,7 +69,7 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	}
 	
 	// update tau_a, tau_b
-	double R = constrained ?
+	double R = diag_cov ?
 	    compute_R(yty, yx, xtx, groups, mu, s, g, p, false) :
 	    compute_R(yty, yx, xtx, groups, mu, Ss, g, p, false);
 
@@ -81,10 +81,10 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
 	
 	// compute the ELBO if option enabled
 	if (track_elbo && (iter % track_elbo_every == 0)) {
-	    double e = constrained ?
-		elbo_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+	    double e = diag_cov ?
+		elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
 		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
-		elbo_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
+		elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
 		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
 
 	    elbo_values.push_back(e);
@@ -106,10 +106,10 @@ Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
     
     // compute elbo for final eval
     if (track_elbo) {
-	double e = constrained ?
-	    elbo_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+	double e = diag_cov ?
+	    elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
 		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
-	    elbo_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
+	    elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
 		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
 	elbo_values.push_back(e);
     }
@@ -347,7 +347,6 @@ double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 // ----------------- tau ---------------------
 // Used for testing and not directly used within the C++
 // implementation.
-// [[Rcpp::export]]
 double update_a_b_obj(const double ta, const double tb, const double ta0,
 	const double tb0, const double R, const double n) 
 {
@@ -404,7 +403,6 @@ class update_a_b_fn
 };
 
 
-// [[Rcpp::export]]
 void update_a_b(double &tau_a, double &tau_b, const double tau_a0,
 	const double tau_b0, const double R, const double n)
 {
@@ -437,9 +435,9 @@ void update_a_b(double &tau_a, double &tau_b, const double tau_a0,
 // where Q: variational family, Pi: prior, Pi_D: model evidence
 // l(D; beta): likelihood
 //
-// TEST WRITTEN: [ ]
+// TEST WRITTEN: [sort of]
 // [[Rcpp::export]]
-double elbo_c(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+double elbo_linear_c(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	const uword n, const uword p, const vec &mu, const vec &s, const vec &g,
 	const double tau_a, const double tau_b, const double lambda, 
 	const double a0, const double b0, const double tau_a0, 
@@ -495,7 +493,8 @@ double elbo_c(const double yty, const vec &yx, const mat &xtx, const uvec &group
 }
 
 // un-constrained
-double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
+// [[Rcpp::export]]
+double elbo_linear_u(const double yty, const vec &yx, const mat &xtx, const uvec &groups,
 	const uword n, const uword p, const vec &mu, const std::vector<mat> &Ss, 
 	const vec &g, const double tau_a, const double tau_b, const double lambda,
 	const double a0, const double b0, const double tau_a0, const double tau_b0, 
@@ -515,9 +514,8 @@ double elbo_u(const double yty, const vec &yx, const mat &xtx, const uvec &group
 	0.5 * e_tau * R +			// S := (X'X)_ij E[b_i b_j]
 	e_tau * dot(yx, g % mu);		// yx := X'y
 
-    
     // compute the terms that depend on gamma_k
-    for (uword group : unique(groups).eval()) 
+    for (uword group : ugroups) 
     {
 	uvec G = find(groups == group);	// indices of group members 
 	uword k = G(0);

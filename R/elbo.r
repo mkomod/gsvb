@@ -26,14 +26,12 @@
 #' gsvb.elbo(f, y, X, groups) 
 #'
 #' @export
-gsvb.elbo <- function(fit, y, X, groups, mcn=1e4, approx=FALSE, approx_thresh=1e-3) 
+gsvb.elbo <- function(fit, y, X, groups, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
 {
     if (fit$parameters$intercept) {
 	groups <- c(min(groups) - 1, groups) + 1
 	X <- cbind(rep(1, nrow(X)), X)
     }
-
-    # TODO: ensure the group ordering is consistent, see: fit.r
 
     yty <- sum(y * y)
     yx <- t(X) %*% y
@@ -42,9 +40,18 @@ gsvb.elbo <- function(fit, y, X, groups, mcn=1e4, approx=FALSE, approx_thresh=1e
     n <- nrow(X)
     p <- ncol(X)
 
-    return(elbo(yty, yx, xtx, groups, n, p, fit$m, fit$s, fit$g[groups],
+    res <- ifelse(fit$parameters$diag_covariance,
+
+	elbo_linear_c(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
 	fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
 	fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
-	mcn, approx, approx_thresh))
-}
+	mcn, approx, approx_thresh),
 
+	elbo_linear_u(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
+	fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
+	fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
+	mcn, approx, approx_thresh)
+    )
+
+    return(res)
+}
