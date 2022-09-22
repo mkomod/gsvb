@@ -4,7 +4,7 @@
 #' @param X input matrix.
 #' @param groups group structure.
 #' @param intercept should an intercept term be included.
-#' @param diag_covariance should the covariance matrix used in the variational approximation be diagonal. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
+#' @param diag_covariance should a diagonal covariance matrix be used in the variational approximation. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
 #' @param lambda penalization hyperparameter for the multivariate exponential prior.
 #' @param a0 shape parameter for the Beta(a0, b0) mixing prior.
 #' @param b0 shape parameter for the Beta(a0, b0) mixing prior.
