@@ -50,7 +50,7 @@ gsvb.predict <- function(fit, groups, newdata, mcn=1e4,
 	{
 	    mu <- sapply(which(G), function(j) {
 		Gj <- which(groups == j)
-		rnorm(length(Gj)) %*% t(chol(f$s[[j]])) + f$m[Gj]
+		rnorm(length(Gj)) %*% t(chol(fit$s[[j]])) + fit$m[Gj]
 	    })
 	    mu <- matrix(as.numeric(unlist(mu)), ncol=1)
 	}
