@@ -35,7 +35,7 @@ gsvb.fit(
 
 \item{intercept}{should an intercept term be included.}
 
-\item{diag_covariance}{should the covariance matrix used in the variational approximation be diagonal. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.}
+\item{diag_covariance}{should a diagonal covariance matrix be used in the variational approximation. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.}
 
 \item{lambda}{penalization hyperparameter for the multivariate exponential prior.}
 
