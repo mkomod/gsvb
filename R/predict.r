@@ -33,13 +33,13 @@ gsvb.predict <- function(fit, groups, newdata, mcn=1e4,
 
     M <- length(fit$g)
     n <- nrow(newdata)
-    sigma <- sqrt(f$tau_b / f$tau_a)
+    sigma <- sqrt(fit$tau_b / fit$tau_a)
 
     y.star <- replicate(mcn, 
     {
 	grp <- (runif(M) <= fit$g)[groups]
 	mu <- rnorm(sum(grp), fit$mu[grp], fit$s[grp])
-	newdata[ , grp] %*% mu + sigma * rt(n, 2 * f$tau_a)
+	newdata[ , grp] %*% mu + sigma * rt(n, 2 * fit$tau_a)
     }, simplify="matrix")
 
     y.star <- matrix(y.star, nrow=n)
