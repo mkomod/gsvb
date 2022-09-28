@@ -114,7 +114,7 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
 	tau_b = tb,
 	parameters = list(lambda = lambda, a0 = a0, b0=b0, tau_a0=tau_a0, tau_b0=tau_b0,
 			  intercept=intercept, diag_covariance=diag_covariance,
-			  groups=groups, model=1),
+			  groups=groups, family=1),
 	converged = f$converged,
 	iter = f$iter
     )
