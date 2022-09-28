@@ -3,7 +3,6 @@
 #' @param fit the fit model.
 #' @param y response vector.
 #' @param X input matrix.
-#' @param groups group structure.
 #' @param mcn number of Monte-Carlo samples.
 #' @param approx elements of gamma less than an approximation threshold are not used in computations.
 #' @param approx_thresh the threshold below which elements of gamma are not used.
@@ -26,12 +25,12 @@
 #' gsvb.elbo(f, y, X, groups) 
 #'
 #' @export
-gsvb.elbo <- function(fit, y, X, groups, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
+gsvb.elbo <- function(fit, y, X, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
 {
     if (fit$parameters$intercept) {
-	groups <- c(min(groups) - 1, groups) + 1
 	X <- cbind(rep(1, nrow(X)), X)
     }
+    groups <- fit$parameters$groups
 
     yty <- sum(y * y)
     yx <- t(X) %*% y

@@ -2,7 +2,6 @@
 #'
 #' @param fit the fit model.
 #' @param newdata input feature matrix.
-#' @param groups group structure.
 #' @param mcn number of Monte-Carlo samples.
 #' @param quantiles quantiles to return 
 #' @param return_samples return all the samples
@@ -23,13 +22,13 @@
 #' gsvb.predict(f, groups, X) 
 #'
 #' @export
-gsvb.predict <- function(fit, groups, newdata, mcn=1e4, 
+gsvb.predict <- function(fit, newdata, mcn=1e4, 
     quantiles=c(0.025, 0.975), return_samples=FALSE) 
 {
     if (fit$parameters$intercept) {
 	newdata <- cbind(1, newdata)
-	groups <- c(1, groups + 1)
     }
+    groups <- fit$parameters$groups
 
     M <- length(fit$g)
     n <- nrow(newdata)
