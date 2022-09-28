@@ -6,7 +6,6 @@
 \usage{
 gsvb.predict(
   fit,
-  groups,
   newdata,
   mcn = 10000,
   quantiles = c(0.025, 0.975),
@@ -15,8 +14,6 @@ gsvb.predict(
 }
 \arguments{
 \item{fit}{the fit model.}
-
-\item{groups}{group structure.}
 
 \item{newdata}{input feature matrix.}
 

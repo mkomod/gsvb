@@ -4,7 +4,7 @@
 \alias{gsvb.elbo}
 \title{Compute the Evidence Lower Bound (ELBO)}
 \usage{
-gsvb.elbo(fit, y, X, groups, mcn = 500, approx = FALSE, approx_thresh = 0.001)
+gsvb.elbo(fit, y, X, mcn = 500, approx = FALSE, approx_thresh = 0.001)
 }
 \arguments{
 \item{fit}{the fit model.}
@@ -12,8 +12,6 @@ gsvb.elbo(fit, y, X, groups, mcn = 500, approx = FALSE, approx_thresh = 0.001)
 \item{y}{response vector.}
 
 \item{X}{input matrix.}
-
-\item{groups}{group structure.}
 
 \item{mcn}{number of Monte-Carlo samples.}
 

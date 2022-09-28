@@ -4,4 +4,5 @@ useDynLib(gsvb, .registration=TRUE)
 export(gsvb.fit)
 export(gsvb.elbo)
 export(gsvb.predict)
-
+export(gsvb.credible_intervals)
+export(gsvb.sample)
