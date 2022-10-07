@@ -1,5 +1,5 @@
-#ifndef GSVB_FIT_H
-#define GSVB_FIT_H
+#ifndef GSVB_FIT_LINEAR_H
+#define GSVB_FIT_LINEAR_H
 
 #include "RcppEnsmallen.h"
 

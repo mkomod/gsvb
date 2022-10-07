@@ -93,10 +93,10 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
 
     # run algorithm
     if (diag_covariance) {
-	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
+	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
 	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
     } else {
-	f <- fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
+	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
 	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
 	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
     }

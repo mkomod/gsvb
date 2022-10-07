@@ -1,8 +1,8 @@
-#include "fit.h"
+#include "linear.h"
 
 
 // [[Rcpp::export]]
-Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0,
+Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const double a0,
     const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, 
     vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, 
     const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose)
