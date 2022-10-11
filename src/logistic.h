@@ -24,4 +24,41 @@ double update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 	const double thresh, const int l, const double w);
 
 
+// jensens functions
+vec jen_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const uvec &G, const vec &P);
+
+vec jen_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const uvec &G, const vec &P);
+
+double jen_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const double w, const uvec &G, const vec &P);
+
+// jensens helper
+inline vec compute_P_G(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &G);
+
+vec compute_P(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &groups);
+
+
+// jaakkola functions
+vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,
+	const vec &mu, const vec &s, const vec &g, const double lambda,
+	const uvec &G, const uvec &Gc);
+
+vec jaak_update_s(const vec &y, const mat &XAX, const vec &mu, 
+	const vec &s, const double lambda, const uvec &G);
+
+double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
+	const vec &mu, const vec &s, const vec &g, const double lambda,
+	const double w, const uvec &G, const uvec &Gc);
+
+vec jaak_update_l(const mat &X, const vec &mu, const vec &s, const vec &g);
+
+// jaakola helper
+vec a(const vec &x);
+
+
+
 #endif

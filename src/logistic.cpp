@@ -3,27 +3,48 @@
 
 
 // [[Rcpp::export]]
-Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, const double a0,
-    const double b0, vec mu, vec s, vec g, const double thresh, const int l,
-    unsigned int niter, double tol, bool verbose)
+Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, 
+    const double a0, const double b0, vec mu, vec s, vec g, const double thresh,
+    const int l, unsigned int niter, unsigned int alg, double tol, bool verbose)
 {
     const uword n = X.n_rows;
     const uword p = X.n_cols;
+    
+    const uvec ugroups = arma::unique(groups);
+    const uword M = ugroups.size();
     const double w = a0 / (a0 + b0);
     
-    // init
-    const uvec ugroups = arma::unique(groups);
+    // init new bound
     vec mu_old, s_old, g_old;
-    mat Xm = mat(n, ugroups.size());
-    mat Xs = mat(n, ugroups.size());
-    vec ug = vec(ugroups.size());
+    mat Xm = mat(n, M);
+    mat Xs = mat(n, M);
+    vec ug = vec(M);
 
-    for (uword group : ugroups) 
-    {
-	uvec G = arma::find(groups == group);
-	Xm.col(group) = X.cols(G) * mu(G);
-	Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
-	ug(group) = g(G(0));
+    // init jensens
+    vec P = vec(n , arma::fill::zeros);
+
+    // init jaakkola
+    mat XAX = mat(p, p);
+    vec jaak_vp = vec(n);
+	
+    // new bound init
+    if (alg == 1)
+	for (uword group : ugroups) 
+	{
+	    uvec G = arma::find(groups == group);
+	    Xm.col(group) = X.cols(G) * mu(G);
+	    Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
+	    ug(group) = g(G(0));
+	}
+    
+    // jensens init
+    if (alg == 2) 
+	P = compute_P(X, mu, s, g, groups);
+
+    // jaak init
+    if (alg == 3) {
+	jaak_vp = jaak_update_l(X, mu, s, g);
+	XAX = X.t() * diagmat(a(jaak_vp)) * X;
     }
 
     uword num_iter = niter;
@@ -33,22 +54,56 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, const do
     {
 	mu_old = mu; s_old = s; g_old = g;
 
+	if (alg == 3) {
+	    jaak_vp = jaak_update_l(X, mu, s, g);
+	    XAX = X.t() * diagmat(a(jaak_vp)) * X;
+	}
+
 	// update mu, sigma, gamma
 	for (uword group : ugroups)
 	{
 	    uvec G  = arma::find(groups == group);
-	    // uvec Gc = arma::find(groups != group);
 	    
-	    mu(G) = update_m(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
-	    Xm.col(group) = X.cols(G) * mu(G);
+	    // update using new bound
+	    if (alg == 1)
+	    {
+		mu(G) = update_m(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
+		Xm.col(group) = X.cols(G) * mu(G);
 
-	    s(G)  = update_s(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
-	    Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
+		s(G)  = update_s(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
+		Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
 
-	    double tg = update_g(y, X, mu, s, ug, lambda, group, G, Xm, Xs, 
-		    thresh, l, w);
-	    for (uword j : G) g(j) = tg;
-	    ug(group) = tg;
+		double tg = update_g(y, X, mu, s, ug, lambda, group, G, Xm, Xs, 
+			thresh, l, w);
+		for (uword j : G) g(j) = tg;
+		ug(group) = tg;
+	    }
+
+	    // update using jensens
+	    if (alg == 2)
+	    {
+		P /= compute_P_G(X, mu, s, g, G);
+
+		mu(G) = jen_update_mu(y, X, mu, s, lambda, G, P);
+		s(G)  = jen_update_s(y, X, mu, s, lambda, G, P);
+
+		double tg = jen_update_g(y, X, mu, s, lambda, w, G, P);
+		for (uword j : G) g(j) = tg;
+
+		P %= compute_P_G(X, mu, s, g, G);
+	    }
+
+	    // update using jaakola bound
+	    if (alg == 3)
+	    {
+		uvec Gc = arma::find(groups != group);
+
+		mu(G) = jaak_update_mu(y, X, XAX, mu, s, g, lambda, G, Gc);
+		s(G)  = jaak_update_s(y, XAX, mu, s, lambda, G);
+
+		double tg = jaak_update_g(y, X, XAX, mu, s, g, lambda, w, G, Gc);
+		for (uword j : G) g(j) = tg;
+	    }
 	}
 	
 	// check for break, print iter
@@ -547,19 +602,53 @@ double update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 // JENSENS
 // updates of mu, s, g with Jensens
 // ----------------------------------------
+inline vec compute_P_G(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &G)
+{
+    return ( (1 - g(G(0))) + g(G(0)) * mvnMGF(X.cols(G), mu(G), s(G)) );
+}
+
+vec compute_P(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &groups)
+{
+    vec P = vec(X.n_rows, arma::fill::ones);
+    const uvec ugroups = unique(groups);
+
+    for (uword group : ugroups) {
+	uvec G = find(groups == group);
+	P %= compute_P_G(X, mu, s, g, G);
+    }
+    return P;
+}
+
 
 class jen_update_mu_fn
 {
     public:
 	jen_update_mu_fn(const vec &y, const mat &X, const vec &mu,
-		const vec &s, const uvec &G, const double P) :
-	    y(y), X(X), mu(mu), s(s), G(G), P(P)
+		const vec &s, const double lambda, const uvec &G, 
+		const vec &P) :
+	    y(y), X(X), mu(mu), s(s), lambda(lambda), G(G), P(P)
 	{};
 
 	double EvaluateWithGradient(const mat &mG, mat &grad)
 	{
-	    double res = 0;
-	    return 0;
+	    const vec PP = P % mvnMGF(X.cols(G), mG, s(G));
+
+	    double res = accu(log1p(PP) - y % (X.cols(G) * mG)) +
+		lambda * sqrt(accu(s(G) % s(G) + mG % mG)); 
+	    
+	    vec dPPmG = vec(mG.size(), arma::fill::zeros);
+
+	    for (uword j = 0; j < mG.size(); ++j) {
+		dPPmG(j) = accu( X.col(G(j)) % PP / (1 + PP) );
+	    }
+
+	    grad = dPPmG -
+		X.cols(G).t() * y +
+		lambda * mG * pow(dot(s(G), s(G)) + dot(mG, mG), -0.5);
+	    
+	    return res;
 	};
 
     private:
@@ -567,100 +656,244 @@ class jen_update_mu_fn
 	const mat &X;
 	const vec &mu;
 	const vec &s;
+	const double lambda;
 	const uvec &G;
-	const double P;
+	const vec &P;
 };
 
 
-vec jen_update_mu()
+vec jen_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const uvec &G, const vec &P)
 {
-    
+    ens::L_BFGS opt;
+    opt.MaxIterations() = 50;
+    jen_update_mu_fn fn(y, X, mu, s, lambda, G, P);
+
+    arma::vec mG = mu(G);
+    opt.Optimize(fn, mG);
+
+    return mG;
 }
 
 
-vec jen_update_s()
+class jen_update_s_fn
 {
+    public:
+	jen_update_s_fn(const vec &y, const mat &X, const vec &mu,
+		const double lambda, const uvec &G, const vec &P) :
+	    y(y), X(X), mu(mu), lambda(lambda), G(G), P(P)
+	{};
 
-} 
+	double EvaluateWithGradient(const mat &u, mat &grad)
+	{
+	    const vec sG = exp(u);
+
+	    const vec PP = P % mvnMGF(X.cols(G), mu(G), sG);
+
+	    double res = accu(log1p(PP)) -
+		accu(log(sG)) +
+		lambda * sqrt(accu(sG % sG + mu(G) % mu(G)));
+	    
+	    vec dPPsG = vec(sG.size(), arma::fill::zeros);
+
+	    for (uword j = 0; j < sG.size(); ++j) {
+		dPPsG(j) = accu( sG(j) * (X.col(G(j)) % X.col(G(j))) % 
+			PP / (1 + PP) );
+	    }
+
+	    // df/duG = df/dsG * dsG/du
+	    grad = (dPPsG -
+		1.0 / sG +
+		lambda * sG * pow(dot(sG, sG) + dot(mu(G), mu(G)), -0.5)) % sG;
+	    
+	    // Rcpp::Rcout << res;
+	    return res;
+	};
+
+    private:
+	const vec &y;
+	const mat &X;
+	const vec &mu;
+	const double lambda;
+	const uvec &G;
+	const vec &P;
+};
 
 
-vec jen_update_g()
+vec jen_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const uvec &G, const vec &P)
 {
+    ens::L_BFGS opt;
+    opt.MaxIterations() = 50;
+    jen_update_s_fn fn(y, X, mu, lambda, G, P);
 
+    arma::vec u = log(s(G));
+    opt.Optimize(fn, u);
+
+    return exp(u);
 }
 
 
+double jen_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
+	const double lambda, const double w, const uvec &G, const vec &P)
+{
+    const double mk = G.size();
+    const double Ck = mk * log(2.0) + 0.5*(mk-1.0)*log(M_PI) + 
+	lgamma(0.5*(mk + 1.0));
+
+    const vec PP = P % mvnMGF(X.cols(G), mu(G), s(G));
+
+    const double res =
+	log(w / (1 - w)) + 
+	0.5 * mk - 
+	Ck +
+	mk * log(lambda) +
+	0.5 * accu(log(2.0 * M_PI * s(G) % s(G))) -
+	lambda * sqrt(dot(s(G), s(G)) + dot(mu(G), mu(G))) +
+	dot(y, (X.cols(G) * mu(G))) -
+	accu(log1p(PP)) + 
+	accu(log1p(P));
+
+    return 1.0/(1.0 + exp(-res));
+}
 
 
-// compute_S <- function(X, m, s, g, groups) 
-// {
-//     S <- rep(1, nrow(X))
+// ---------------------------------------- 
+// JAAKKOLA
+// Updates for mu, s, g, l
+// ----------------------------------------
+class jaak_update_mu_fn
+{
+    public:
+	jaak_update_mu_fn(const vec &y, const mat &X, const mat &XAX,
+		const vec &mu, const vec &s, const vec &g, const double lambda,
+		const uvec &G, const uvec &Gc) :
+	    y(y), X(X), XAX(XAX), mu(mu), s(s), g(g), lambda(lambda), 
+	    G(G), Gc(Gc)
+	{};
 
-//     for (group in unique(groups)) {
-// 	G <- which(groups == group)
-// 	S <- S * compute_S_G(X, m, s, g, G)
-//     }
-//     return(S)
-// }
+	double EvaluateWithGradient(const mat &mG, mat &grad)
+	{
+	    const double res = 0.5 * dot(mG, XAX(G, G) * mG) +
+		dot(mG, XAX(G, Gc) * (g(Gc) % mu(Gc))) +
+		dot(0.5 - y, X.cols(G) * mG) +
+		lambda * sqrt(accu(s(G) % s(G) + mG % mG)); 
 
+	    grad = XAX(G, G) * mG +
+		XAX(G, Gc) * (g(Gc) % mu(Gc)) +
+		X.cols(G).t() * (0.5 - y) +
+		lambda * mG * pow(dot(s(G), s(G)) + dot(mG, mG), -0.5);
+	    
+	    return res;
+	};
 
-// compute_S_G <- function(X, m, s, g, G)
-// {
-//     apply(X[ , G], 1, function(x) {
-// 	(1 - g[G][1]) + g[G][1] * exp(sum(x * m[G] + 0.5 * x^2 * s[G]^2))
-//     })
-// }
-
-// n_mgf <- function(X, m, s)
-// {
-//     apply(X, 1, function(x) {
-// 	exp(sum(x * m + 0.5 * x^2 * s^2))
-//     })
-// }
-
-
-// opt_mu <- function(m_G, y, X, m, s, g, G, lambda, S) 
-// {
-//     # maybe combine in a Monte Carlo step rather than use
-//     # Jensen's for this part?
-//     S <- S * n_mgf(X[ , G], m_G, s[G])
-
-//     sum(log1p(S) - y * (X[ , G] %*% m_G)) +
-//     lambda * sqrt(sum(s[G]^2) + sum(m_G^2))
-// }
-
-
-
-// opt_s <- function(s_G, y, X, m, s, g, G, lambda, S) 
-// {
-//     S <- S * n_mgf(X[ , G], m[g], s_G)
-
-//     sum(log1p(S)) -
-//     sum(log(s_G)) +
-//     lambda * sqrt(sum(s_G^2) + sum(m[G]^2))
-// }
+    private:
+	const vec &y;
+	const mat &X;
+	const mat &XAX;
+	const vec &mu;
+	const vec &s;
+	const vec &g;
+	const double lambda;
+	const uvec &G;
+	const uvec &Gc;
+};
 
 
-// opt_g <- function(y, X, m, s, g, G, lambda, S) 
-// {
-//     mk <- length(G)
-//     Ck <- mk * log(2) + (mk -1)/2 * log(pi) + lgamma( (mk + 1) / 2)
-//     S1 <- S * n_mgf(X[ , G], m[G], s[G])
+vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,
+	const vec &mu, const vec &s, const vec &g, const double lambda,
+	const uvec &G, const uvec &Gc)
+{
+    ens::L_BFGS opt;
+    opt.MaxIterations() = 50;
+    jaak_update_mu_fn fn(y, X, XAX, mu, s, g, lambda, G, Gc);
 
-//     res <- 
-// 	log(w / (1- w)) + 
-// 	0.5 * mk - 
-// 	Ck +
-// 	mk * log(lambda) +
-// 	0.5 * sum(log(2 * pi * s[G]^2)) -
-// 	lambda * sqrt(sum(s[G]^2) + sum(m[G]^2)) +
-// 	sum(y * X[ , G] %*% m[G]) -
-// 	sum(log1p(S1)) +
-// 	sum(log1p(S))
+    vec mG = mu(G);
+    opt.Optimize(fn, mG);
 
-//     sigmoid(res)
-// }
+    return mG;
+}
 
 
+class jaak_update_s_fn
+{
+    public:
+	jaak_update_s_fn(const vec &y, const mat &XAX, const vec &mu, 
+		const double lambda, const uvec &G) :
+	    y(y), XAX(XAX), mu(mu), lambda(lambda), G(G)
+	{};
+
+	double EvaluateWithGradient(const mat &u, mat &grad)
+	{
+	    const vec sG = exp(u);
+
+	    const double res = 0.5 * accu(diagvec(XAX(G, G)) % sG % sG) -
+		accu(log(sG)) +
+		lambda * sqrt(accu(sG % sG + mu(G) % mu(G))); 
+
+	    grad = (
+		diagvec(XAX(G, G)) % sG -
+		1 / sG +
+		lambda * sG * pow(dot(sG, sG) + dot(mu(G), mu(G)), -0.5)
+	    ) % sG;
+
+	    return res;
+	};
+
+    private:
+	const vec &y;
+	const mat &XAX;
+	const vec &mu;
+	const double lambda;
+	const uvec &G;
+};
 
 
+vec jaak_update_s(const vec &y, const mat &XAX, const vec &mu, 
+	const vec &s, const double lambda, const uvec &G)
+{
+    ens::L_BFGS opt;
+    opt.MaxIterations() = 50;
+    jaak_update_s_fn fn(y, XAX, mu,lambda, G);
+
+    vec u = log(s(G));
+    opt.Optimize(fn, u);
+
+    return exp(u);
+}
+
+
+double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
+	const vec &mu, const vec &s, const vec &g, const double lambda,
+	const double w, const uvec &G, const uvec &Gc)
+{
+    const double mk = G.size();
+    const double Ck = mk * log(2.0) + 0.5*(mk-1.0)*log(M_PI) + 
+	lgamma(0.5*(mk + 1.0));
+
+    const double res =
+	log(w / (1 - w)) + 
+	0.5 * mk - 
+	Ck +
+	mk * log(lambda) +
+	0.5 * accu(log(2.0 * M_PI * s(G) % s(G))) -
+	lambda * sqrt(dot(s(G), s(G)) + dot(mu(G), mu(G))) +
+	dot((y - 0.5), X.cols(G) * mu(G)) -
+	0.5 * dot(mu(G), XAX(G, G) * mu(G)) -
+	0.5 * accu(diagvec(XAX(G, G)) % s(G) % s(G)) -
+	dot(mu(G), XAX(G, Gc) * (g(Gc) % mu(Gc)));
+
+    return 1.0 / (1.0 + exp(-res));
+}
+
+
+vec jaak_update_l(const mat &X, const vec &mu, const vec &s, const vec &g) 
+{
+    return sqrt(pow(X * (g % mu), 2) + (X % X) * (g % s % s));
+}
+
+
+vec a(const vec &x)
+{
+    return (sigmoid(x) - 0.5) / x;
+}
