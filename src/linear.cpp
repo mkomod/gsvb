@@ -295,8 +295,6 @@ vec update_S(const uvec &G, const mat &xtx, const vec &mu,
     update_S_fn fn(G, xtx, mu, e_tau, lambda);
     opt.MaxIterations() = 8;
     
-    // we are using the relationship s = exp(u) to
-    // for s to be positive everywhere
     opt.Optimize(fn, s);
 
     // update S

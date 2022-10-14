@@ -4,8 +4,9 @@
 
 // [[Rcpp::export]]
 Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, 
-    const double a0, const double b0, vec mu, vec s, vec g, const double thresh,
-    const int l, unsigned int niter, unsigned int alg, double tol, bool verbose)
+    const double a0, const double b0, vec mu, vec s, vec g, 
+    const bool diag_cov, const double thresh, const int l, 
+    unsigned int niter, unsigned int alg, double tol, bool verbose)
 {
     const uword n = X.n_rows;
     const uword p = X.n_cols;
@@ -26,15 +27,18 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
     // init jaakkola
     mat XAX = mat(p, p);
     vec jaak_vp = vec(n);
+    std::vector<mat> Ss;
 	
     // new bound init
     if (alg == 1)
 	for (uword group : ugroups) 
 	{
+	    uword gi = arma::find(ugroups == group).eval().at(0);
 	    uvec G = arma::find(groups == group);
-	    Xm.col(group) = X.cols(G) * mu(G);
-	    Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
-	    ug(group) = g(G(0));
+
+	    Xm.col(gi) = X.cols(G) * mu(G);
+	    Xs.col(gi) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
+	    ug(gi) = g(G(0));
 	}
     
     // jensens init
@@ -45,7 +49,18 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
     if (alg == 3) {
 	jaak_vp = jaak_update_l(X, mu, s, g);
 	XAX = X.t() * diagmat(a(jaak_vp)) * X;
+	
+	// init unristricted covariance matrix
+	if (!diag_cov) {
+	    for (uword group : ugroups) {
+		uvec G = find(groups == group);	
+		Ss.push_back(arma::diagmat(s(G)));
+	    }
+	}
     }
+
+    // if not constrained we are using a full covariance for S
+
 
     uword num_iter = niter;
     bool converged = false;
@@ -55,7 +70,11 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	mu_old = mu; s_old = s; g_old = g;
 
 	if (alg == 3) {
-	    jaak_vp = jaak_update_l(X, mu, s, g);
+	    if (diag_cov) {
+		jaak_vp = jaak_update_l(X, mu, s, g);
+	    } else {
+		jaak_vp = jaak_update_l(X, mu, Ss, g, groups, ugroups);
+	    }
 	    XAX = X.t() * diagmat(a(jaak_vp)) * X;
 	}
 
@@ -67,16 +86,18 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	    // update using new bound
 	    if (alg == 1)
 	    {
-		mu(G) = update_m(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
-		Xm.col(group) = X.cols(G) * mu(G);
+		uword gi = arma::find(ugroups == group).eval().at(0);
 
-		s(G)  = update_s(y, X, mu, s, ug, lambda, group, G, Xm, Xs, thresh, l);
-		Xs.col(group) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
+		mu(G) = update_m(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
+		Xm.col(gi) = X.cols(G) * mu(G);
 
-		double tg = update_g(y, X, mu, s, ug, lambda, group, G, Xm, Xs, 
+		s(G)  = update_s(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
+		Xs.col(gi) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
+
+		double tg = update_g(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, 
 			thresh, l, w);
 		for (uword j : G) g(j) = tg;
-		ug(group) = tg;
+		ug(gi) = tg;
 	    }
 
 	    // update using jensens
@@ -98,11 +119,25 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	    {
 		uvec Gc = arma::find(groups != group);
 
-		mu(G) = jaak_update_mu(y, X, XAX, mu, s, g, lambda, G, Gc);
-		s(G)  = jaak_update_s(y, XAX, mu, s, lambda, G);
+		if (diag_cov)
+		{
+		    mu(G) = jaak_update_mu(y, X, XAX, mu, s(G), g, lambda, G, Gc);
+		    s(G)  = jaak_update_s(XAX, mu, s, lambda, G);
+		    double tg = jaak_update_g(y, X, XAX, mu, s, g, lambda, w, G, Gc);
+		    for (uword j : G) g(j) = tg;
+		} 
+		else 
+		{
+		    // get the index of the group
+		    uword gi = arma::find(ugroups == group).eval().at(0);
+		    mat &S = Ss.at(gi);
 
-		double tg = jaak_update_g(y, X, XAX, mu, s, g, lambda, w, G, Gc);
-		for (uword j : G) g(j) = tg;
+		    mu(G) = jaak_update_mu(y, X, XAX, mu, sqrt(diagvec(S)), g, lambda, G, Gc);
+		    s(G)  = jaak_update_S(XAX, mu, S, s(G), lambda, G);
+
+		    double tg = jaak_update_g(y, X, XAX, mu, S, g, lambda, w, G, Gc);
+		    for (uword j : G) g(j) = tg;
+		}
 	    }
 	}
 	
@@ -139,7 +174,8 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	Rcpp::Named("sigma") = s,
 	Rcpp::Named("gamma") = g,
 	Rcpp::Named("converged") = converged,
-	Rcpp::Named("iterations") = num_iter
+	Rcpp::Named("iterations") = num_iter,
+	Rcpp::Named("S") = Ss
 	// Rcpp::Named("elbo") = elbo_values
     );
 }
@@ -766,9 +802,9 @@ class jaak_update_mu_fn
 {
     public:
 	jaak_update_mu_fn(const vec &y, const mat &X, const mat &XAX,
-		const vec &mu, const vec &s, const vec &g, const double lambda,
+		const vec &mu, const vec &sG, const vec &g, const double lambda,
 		const uvec &G, const uvec &Gc) :
-	    y(y), X(X), XAX(XAX), mu(mu), s(s), g(g), lambda(lambda), 
+	    y(y), X(X), XAX(XAX), mu(mu), sG(sG), g(g), lambda(lambda), 
 	    G(G), Gc(Gc)
 	{};
 
@@ -777,12 +813,12 @@ class jaak_update_mu_fn
 	    const double res = 0.5 * dot(mG, XAX(G, G) * mG) +
 		dot(mG, XAX(G, Gc) * (g(Gc) % mu(Gc))) +
 		dot(0.5 - y, X.cols(G) * mG) +
-		lambda * sqrt(accu(s(G) % s(G) + mG % mG)); 
+		lambda * sqrt(accu(sG % sG + mG % mG)); 
 
 	    grad = XAX(G, G) * mG +
 		XAX(G, Gc) * (g(Gc) % mu(Gc)) +
 		X.cols(G).t() * (0.5 - y) +
-		lambda * mG * pow(dot(s(G), s(G)) + dot(mG, mG), -0.5);
+		lambda * mG * pow(dot(sG, sG) + dot(mG, mG), -0.5);
 	    
 	    return res;
 	};
@@ -792,7 +828,7 @@ class jaak_update_mu_fn
 	const mat &X;
 	const mat &XAX;
 	const vec &mu;
-	const vec &s;
+	const vec &sG;
 	const vec &g;
 	const double lambda;
 	const uvec &G;
@@ -818,9 +854,9 @@ vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,
 class jaak_update_s_fn
 {
     public:
-	jaak_update_s_fn(const vec &y, const mat &XAX, const vec &mu, 
+	jaak_update_s_fn(const mat &XAX, const vec &mu, 
 		const double lambda, const uvec &G) :
-	    y(y), XAX(XAX), mu(mu), lambda(lambda), G(G)
+	    XAX(XAX), mu(mu), lambda(lambda), G(G)
 	{};
 
 	double EvaluateWithGradient(const mat &u, mat &grad)
@@ -841,7 +877,6 @@ class jaak_update_s_fn
 	};
 
     private:
-	const vec &y;
 	const mat &XAX;
 	const vec &mu;
 	const double lambda;
@@ -849,12 +884,12 @@ class jaak_update_s_fn
 };
 
 
-vec jaak_update_s(const vec &y, const mat &XAX, const vec &mu, 
+vec jaak_update_s(const mat &XAX, const vec &mu, 
 	const vec &s, const double lambda, const uvec &G)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    jaak_update_s_fn fn(y, XAX, mu,lambda, G);
+    jaak_update_s_fn fn(XAX, mu,lambda, G);
 
     vec u = log(s(G));
     opt.Optimize(fn, u);
@@ -887,9 +922,54 @@ double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
 }
 
 
+double jaak_update_g(const vec &y, const mat &X, const mat &XAX, const vec &mu,
+	const mat &S, const vec &g, const double lambda, const double w,
+	const uvec &G, const uvec &Gc)
+{
+    const double mk = G.size();
+    const double Ck = mk * log(2.0) + 0.5*(mk-1.0)*log(M_PI) + 
+	lgamma(0.5*(mk + 1.0));
+
+    vec ds = diagvec(S);
+
+    const double res =
+	log(w / (1 - w)) + 
+	0.5 * mk - 
+	Ck +
+	mk * log(lambda) +
+	0.5 * log(det(2.0 * M_PI * S)) -
+	lambda * sqrt(sum(ds) + dot(mu(G), mu(G))) +
+	dot((y - 0.5), X.cols(G) * mu(G)) -
+	0.5 * dot(mu(G), XAX(G, G) * mu(G)) -
+	0.5 * accu( XAX(G, G) % S) -
+	dot(mu(G), XAX(G, Gc) * (g(Gc) % mu(Gc)));
+
+    return 1.0 / (1.0 + exp(-res));
+}
+
+
 vec jaak_update_l(const mat &X, const vec &mu, const vec &s, const vec &g) 
 {
     return sqrt(pow(X * (g % mu), 2) + (X % X) * (g % s % s));
+}
+
+
+vec jaak_update_l(const mat &X, const vec &mu, const std::vector<mat> &Ss,
+	const vec &g, const uvec &groups, const uvec &ugroups)
+{
+    uword n = X.n_rows;
+    vec res = pow(X * (g % mu), 2);
+
+    for (uword group : ugroups)
+    {
+	uword gi = find(ugroups == group).eval().at(0);
+	uvec G = find(groups == group);
+
+	mat S = Ss.at(gi);
+	res += arma::sum(g(gi) * (X.cols(G) * S) % X.cols(G), 1);
+    }
+
+    return sqrt(res);
 }
 
 
@@ -897,3 +977,56 @@ vec a(const vec &x)
 {
     return (sigmoid(x) - 0.5) / x;
 }
+
+
+// ---------------------------------------- 
+// JAAKKOLA
+// Updates for S
+// ----------------------------------------
+class update_S_fn
+{
+    public:
+	update_S_fn(const mat &XAX, const vec &mu, const double lambda, 
+		const uvec &G) :
+	    XAX(XAX), mu(mu), lambda(lambda), G(G) { }
+
+	double EvaluateWithGradient(const arma::mat &w, arma::mat &grad) {
+	    const mat psi = XAX(G, G);
+	    const mat S = arma::inv(psi + arma::diagmat(w));
+	    const vec ds = arma::diagvec(S);
+
+	    const double res = 0.5 * arma::trace(psi * S) -
+		0.5 * log(arma::det(S)) + 
+		lambda * pow(sum(ds) + dot(mu(G), mu(G)), 0.5);
+
+	    // gradient wrt. w
+	    double tw = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
+	    grad = 0.5 * (S % S) * (w - 2.0 * tw);
+
+	    return res;
+	}
+
+    private:
+	const mat &XAX;
+	const vec &mu;
+	const double lambda;
+	const uvec &G;
+};
+
+
+vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, vec s, 
+	const double lambda, const uvec &G)
+{
+    ens::L_BFGS opt;
+    update_S_fn fn(XAX, mu, lambda, G);
+    opt.MaxIterations() = 8;
+    
+    opt.Optimize(fn, s);
+
+    // update S
+    S = arma::inv(XAX(G, G) + diagmat(s)); 
+    return s;
+}
+
+
+// TODO: IMPLEMENT ELBO (with MCI as more general)
