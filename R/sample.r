@@ -29,21 +29,25 @@ gsvb.sample <- function(fit, samples=1e4)
 
     beta <- replicate(samples, 
     {
-	G <- runif(M) <= fit$g
-	grp <- G[groups]
+	active_groups <- runif(M) <= fit$g
+	grp <- active_groups[groups]
 
 	b <- rep(0, length(grp))
 
+	if (length(active_groups) == 0)
+	    return(b)
+
 	if (fit$parameters$diag_covariance)
 	{
+	    # sample only from the active groups
 	    m <- rnorm(sum(grp), fit$mu[grp], fit$s[grp])
 	} else 
 	{
-	    m <- sapply(which(G), function(j) {
+	    m <- sapply(which(active_groups), function(j) {
 		Gj <- which(groups == j)
 		rnorm(length(Gj)) %*% t(chol(fit$s[[j]])) + fit$m[Gj]
 	    })
-	    m <- as.numeric(unlist(mu))
+	    m <- matrix(as.numeric(unlist(m)), ncol=1)
 	}
 
 	b[grp] <- m

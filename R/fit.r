@@ -3,6 +3,11 @@
 #' @param y response vector.
 #' @param X input matrix.
 #' @param groups group structure.
+#' @param family which family should be used when fitting, should be one of
+#' \item{"linear"}{linear model}
+#' \item{"logit-jensens"}{logistic regression using Jensen as the upper bound}
+#' \item{"logit-jaakkola"}{logistic regression using Jaakkola and Jordan upper bound}
+#' \item{"logit-refined"}{logistic regression using a new upper bound to refine the jaakola fit - takes longer.}
 #' @param intercept should an intercept term be included.
 #' @param diag_covariance should a diagonal covariance matrix be used in the variational approximation. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
 #' @param lambda penalization hyperparameter for the multivariate exponential prior.
@@ -19,15 +24,17 @@
 #' @param niter maximum number of iteration to run the algorithm for.
 #' @param tol convergence tolerance.
 #' @param verbose print additional information.
+#' @param thresh threshold used for the "logit-refined" family
+#' @param l number of parameters used for the "logit-refined" family, samller is faster but more approximate.
 #' 
 #' @return The program output is a list containing:
 #' \item{mu}{the means for the variational posterior.}
 #' \item{s}{the std. dev. or covaraince matrices for the variational posterior.}
 #' \item{g}{the group inclusion probabilities.}
 #' \item{beta_hat}{the variational posterior mean.}
-#' \item{tau_hat}{the mean of the variance term.}
-#' \item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribtuion.}
-#' \item{tau_b}{the scale parameter for the variational posterior of tau^2.}
+#' \item{tau_hat}{the mean of the variance term. (linear only)}
+#' \item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribtuion. (linear only)}
+#' \item{tau_b}{the scale parameter for the variational posterior of tau^2. (linear only)}
 #' \item{parameters}{a list containing the model hyperparameters.}
 #' \item{converged}{a boolean indicating if the algorithm has converged.}
 #' \item{iter}{the number of iterations the algorithm was ran for.}
@@ -51,12 +58,17 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
-    lambda=1, a0=1, b0=length(unique(groups)), tau_a0=1e-3, tau_b0=1e-3,
-    mu=NULL, s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
+gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE, 
+    diag_covariance=TRUE, lambda=1, a0=1, b0=length(unique(groups)), 
+    tau_a0=1e-3, tau_b0=1e-3, mu=NULL, 
+    s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
-    track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE) 
+    track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE, thresh=0.02,
+    l=10) 
 {
+    family <- pmatch(family, c("linear", "logit-jensens", "logit-jaakkola", 
+	    "logit-refined"))
+
     # check user input
     if (min(groups) != 1) 
 	stop("group labels must start at 1")
@@ -68,6 +80,8 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
 	stop("X must be a matrix")
     if (any(c(lambda, a0, b0, tau_a0, tau_b0) <= 0))
 	stop("Hyperparameters must be greater than 0")
+    if (is.na(family))
+	stop("Invalid family")
 
     # pre-processing
     if (intercept) {
@@ -82,42 +96,89 @@ gsvb.fit <- function(y, X, groups, intercept=TRUE, diag_covariance=TRUE,
 	    g <- c(0.5, g)
     }
     
-    if (is.null(mu)) {
+    # initialize using the group LASSO
+    init.lasso <- FALSE
+    if (is.null(mu)) 
+    {
 	# Note: the intercept is handled by adding a column of 1s to the
 	# design matrix X and is therefore disabled for gglasso
-	glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
+	if (family == 1) {
+	    glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
+	} else if (any(c(2,3,4) == family)) {
+	    yy <- y
+	    yy[which(y == 0)] <- -1
+	    glfit <- gglasso::gglasso(X, yy, groups, loss="logit", nlambda=10, 
+		intercept=FALSE)
+	}
 
 	# take mu as the estimate for smallest reg parameter
 	mu <- glfit$beta[ , length(glfit$lambda)]
+	init.lasso <- TRUE
     }
 
-    # run algorithm
-    if (diag_covariance) {
-	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
-	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
-    } else {
-	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_covariance,
-	    track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
+    if (family == 1) # LINEAR
+    {
+	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, 
+	    mu, s, g, diag_covariance, track_elbo, track_elbo_every, 
+	    track_elbo_mcn, niter, tol, verbose)
+    }
+    if (family == 2) # LOGISTIC - JENSEN BOUND
+    {
+	f <- fit_logistic(y, X, groups, lambda, a0, b0,
+	    mu, s, g, TRUE, thresh, l, niter, 2,
+	    tol, verbose)
+    }
+    if (family == 3) # LOGISTIC - JAAKKOLA BOUND
+    {
+	f <- fit_logistic(y, X, groups, lambda, a0, b0,
+	    mu, s, g, diag_covariance, thresh, l, niter, 3,
+	    tol, verbose)
+    }
+    if (family == 4) # LOGISTIC - OUR BOUND
+    {
+	# if (init.lasso) {
+	    # if mu is initialized by the group LASSO then
+	    # first run jaakkola until convergence
+	    # then run the new bound to refine the fit
+
+	f <- fit_logistic(y, X, groups, lambda, a0, b0,
+	    mu, s, g, TRUE, thresh, l, niter, 3, 
+	    tol, verbose)
+	# mu <- f$mu
+	# s <- f$s
+	# g <- f$g
+	# }
+
+	# if mu is provided by the user then this input is taken
+	# and refined with our tight upper bound.
+	f <- fit_logistic(y, X, groups, lambda, a0, b0,
+	    f$mu, f$s, f$g, TRUE, thresh, l, niter, 1,
+	    tol, verbose)
+    }
+    
+    if (diag_covariance == FALSE && any(c(1,2) == family)) {
 	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
     }
-
-    ta <- f$tau_a
-    tb <- f$tau_b
    
     res <- list(
 	mu = f$mu,
 	s = f$s,
 	g = f$g[!duplicated(groups)],
 	beta_hat = f$mu * f$g,
-	tau_hat = tb / (ta - 1),
-	tau_a = ta,
-	tau_b = tb,
-	parameters = list(lambda = lambda, a0 = a0, b0=b0, tau_a0=tau_a0, tau_b0=tau_b0,
+	parameters = list(lambda = lambda, a0 = a0, b0=b0,
 			  intercept=intercept, diag_covariance=diag_covariance,
-			  groups=groups, family=1),
+			  groups=groups, family=family),
 	converged = f$converged,
 	iter = f$iter
     )
+
+    if (family == 1) {
+	res$tau_a = f$tau_a
+	res$tau_b = f$tau_b
+	res$tau_hat = f$tau_a / (f$tau_b - 1)
+	res$parameters$tau_a0=tau_a0
+	res$parameters$tau_b0=tau_b0
+    }
    
     if (track_elbo)
 	res$elbo <- f$elbo

@@ -56,7 +56,7 @@ gsvb.credible_intervals <- function(fit, prob=0.95)
 	    if (interval[1] <= 0 && interval[2] >= 0) {
 		# if interval contains Dirac mass it needs to be smaller
 		interval <- qnorm(c(a.g/2 + (1-g)/2, 1 - a.g/2 - (1-g)/2), m, s)
-		contins.dirac <- TRUE
+		contains.dirac <- TRUE
 	    }
 
 	    return(c(lower=interval[1], upper=interval[2], 

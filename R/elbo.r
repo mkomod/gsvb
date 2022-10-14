@@ -38,6 +38,10 @@ gsvb.elbo <- function(fit, y, X, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
 
     n <- nrow(X)
     p <- ncol(X)
+    
+    if (fit$parameters$family != 1) {
+	stop("NOT IMPLEMENTED")
+    }
 
     res <- ifelse(fit$parameters$diag_covariance,
 

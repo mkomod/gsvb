@@ -2,7 +2,7 @@
 #'
 #' @param fit the fit model.
 #' @param newdata input feature matrix.
-#' @param mcn number of Monte-Carlo samples.
+#' @param samples number of Monte-Carlo samples.
 #' @param quantiles quantiles to return 
 #' @param return_samples return all the samples
 #'
@@ -22,47 +22,39 @@
 #' gsvb.predict(f, groups, X) 
 #'
 #' @export
-gsvb.predict <- function(fit, newdata, mcn=1e4, 
+gsvb.predict <- function(fit, newdata, samples=1e4, 
     quantiles=c(0.025, 0.975), return_samples=FALSE) 
 {
-    if (fit$parameters$intercept) {
-	newdata <- cbind(1, newdata)
-    }
-    groups <- fit$parameters$groups
-
     M <- length(fit$g)
     n <- nrow(newdata)
-    sigma <- sqrt(fit$tau_b / fit$tau_a)
+    groups <- fit$parameters$groups
 
-    y.star <- replicate(mcn, 
+    if (fit$parameters$intercept)
+	newdata <- cbind(1, newdata)
+
+    # samples <- gsvb::gsvb.sample(fit, samples=samples)
+    samples <- gsvb.sample(fit, samples=samples)
+    Xb <- newdata %*% samples$beta
+
+    if (fit$parameters$family == 1)
     {
-	G <- runif(M) <= fit$g
-	grp <- G[groups]
+	sigma <- sqrt(fit$tau_b / fit$tau_a)
+	y.star <- Xb + sigma * rt(prod(dim(Xb)), 2 + fit$tau_a)
 
-	if (length(G) == 0)
-	    return(sigma * rt(n, 2 * fit$tau_a))
+	res <- list(
+	    mean=apply(y.star, 1, mean),
+	    quantiles=apply(y.star, 1, quantile, probs=quantiles)
+	)
 
-	if (fit$parameters$diag_covariance)
-	{
-	    mu <- rnorm(sum(grp), fit$mu[grp], fit$s[grp])
-	} else 
-	{
-	    mu <- sapply(which(G), function(j) {
-		Gj <- which(groups == j)
-		rnorm(length(Gj)) %*% t(chol(fit$s[[j]])) + fit$m[Gj]
-	    })
-	    mu <- matrix(as.numeric(unlist(mu)), ncol=1)
-	}
-
-	newdata[ , grp] %*% mu + sigma * rt(n, 2 * fit$tau_a)
-    }, simplify="matrix")
-
-    y.star <- matrix(y.star, nrow=n)
-
-    res <- list(
-	mean=apply(y.star, 1, mean),
-	quantiles=apply(y.star, 1, quantile, probs=quantiles)
-    )
+    }
+    else if(any(fit$parameters$family == c(2,3,4)))
+    {
+	p <- 1/(1 + exp(-Xb))	
+	res <- list(
+	    mean=apply(p, 1, mean),
+	    quantiles=apply(p, 1, quantile, probs=quantiles)
+	)
+    }
 
     if (return_samples) {
 	res <- c(res, list(samples=y.star))
