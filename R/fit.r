@@ -3,11 +3,13 @@
 #' @param y response vector.
 #' @param X input matrix.
 #' @param groups group structure.
-#' @param family which family should be used when fitting, should be one of
-#' \item{"linear"}{linear model}
-#' \item{"logit-jensens"}{logistic regression using Jensen as the upper bound}
-#' \item{"logit-jaakkola"}{logistic regression using Jaakkola and Jordan upper bound}
-#' \item{"logit-refined"}{logistic regression using a new upper bound to refine the jaakola fit - takes longer.}
+#' @param family which family and bound to use when fitting the model. One of:
+#' \itemize{
+#' 	\item{\code{"linear"}}{ linear model}
+#' 	\item{\code{"logit-jensens"}}{ logistic model using Jensen's inq. to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
+#' 	\item{\code{"logit-jaakkola"}}{ logistic model using Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
+#' 	\item{\code{"logit-refined"}}{ logistic model using a tighter bound for expected log-likelihood. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
+#' }
 #' @param intercept should an intercept term be included.
 #' @param diag_covariance should a diagonal covariance matrix be used in the variational approximation. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
 #' @param lambda penalization hyperparameter for the multivariate exponential prior.
@@ -29,19 +31,21 @@
 #' 
 #' @return The program output is a list containing:
 #' \item{mu}{the means for the variational posterior.}
-#' \item{s}{the std. dev. or covaraince matrices for the variational posterior.}
+#' \item{s}{the std. dev. or covariance matrices for the variational posterior.}
 #' \item{g}{the group inclusion probabilities.}
 #' \item{beta_hat}{the variational posterior mean.}
 #' \item{tau_hat}{the mean of the variance term. (linear only)}
-#' \item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribtuion. (linear only)}
+#' \item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribution. (linear only)}
 #' \item{tau_b}{the scale parameter for the variational posterior of tau^2. (linear only)}
-#' \item{parameters}{a list containing the model hyperparameters.}
+#' \item{parameters}{a list containing the model hyperparameters and other model information}
 #' \item{converged}{a boolean indicating if the algorithm has converged.}
 #' \item{iter}{the number of iterations the algorithm was ran for.}
 #' 
 #' @section Details: TODO
 #'
 #' @examples
+#' library(gsvb)
+#'
 #' n <- 100
 #' p <- 1000
 #' gsize <- 5
@@ -64,7 +68,7 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
     track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE, thresh=0.02,
-    l=10) 
+    l=5) 
 {
     family <- pmatch(family, c("linear", "logit-jensens", "logit-jaakkola", 
 	    "logit-refined"))
@@ -82,6 +86,8 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	stop("Hyperparameters must be greater than 0")
     if (is.na(family))
 	stop("Invalid family")
+    if (any(family == c(2,3,4)) && !all(y == 1 | y == 0))
+	stop("Classification requires y to be in {0, 1}")
 
     # pre-processing
     if (intercept) {
@@ -156,7 +162,7 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	    tol, verbose)
     }
     
-    if (diag_covariance == FALSE && any(c(1,2) == family)) {
+    if (diag_covariance == FALSE && any(c(1,3) == family)) {
 	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
     }
    

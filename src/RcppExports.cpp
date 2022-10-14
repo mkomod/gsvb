@@ -13,9 +13,9 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// fit
-Rcpp::List fit(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose);
-RcppExport SEXP _gsvb_fit(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
+// fit_linear
+Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose);
+RcppExport SEXP _gsvb_fit_linear(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -37,7 +37,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< unsigned int >::type niter(niterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
+    rcpp_result_gen = Rcpp::wrap(fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -99,11 +99,38 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fit_logistic
+Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, vec mu, vec s, vec g, const bool diag_cov, const double thresh, const int l, unsigned int niter, unsigned int alg, double tol, bool verbose);
+RcppExport SEXP _gsvb_fit_logistic(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP threshSEXP, SEXP lSEXP, SEXP niterSEXP, SEXP algSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< vec >::type y(ySEXP);
+    Rcpp::traits::input_parameter< mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< uvec >::type groups(groupsSEXP);
+    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< const double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< const double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< vec >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< vec >::type s(sSEXP);
+    Rcpp::traits::input_parameter< vec >::type g(gSEXP);
+    Rcpp::traits::input_parameter< const bool >::type diag_cov(diag_covSEXP);
+    Rcpp::traits::input_parameter< const double >::type thresh(threshSEXP);
+    Rcpp::traits::input_parameter< const int >::type l(lSEXP);
+    Rcpp::traits::input_parameter< unsigned int >::type niter(niterSEXP);
+    Rcpp::traits::input_parameter< unsigned int >::type alg(algSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_logistic(y, X, groups, lambda, a0, b0, mu, s, g, diag_cov, thresh, l, niter, alg, tol, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_gsvb_fit", (DL_FUNC) &_gsvb_fit, 18},
+    {"_gsvb_fit_linear", (DL_FUNC) &_gsvb_fit_linear, 18},
     {"_gsvb_elbo_linear_c", (DL_FUNC) &_gsvb_elbo_linear_c, 19},
     {"_gsvb_elbo_linear_u", (DL_FUNC) &_gsvb_elbo_linear_u, 19},
+    {"_gsvb_fit_logistic", (DL_FUNC) &_gsvb_fit_logistic, 16},
     {NULL, NULL, 0}
 };
 

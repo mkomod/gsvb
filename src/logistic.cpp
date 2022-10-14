@@ -49,7 +49,7 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
     if (alg == 3) {
 	jaak_vp = jaak_update_l(X, mu, s, g);
 	XAX = X.t() * diagmat(a(jaak_vp)) * X;
-	
+
 	// init unristricted covariance matrix
 	if (!diag_cov) {
 	    for (uword group : ugroups) {
@@ -133,7 +133,7 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 		    mat &S = Ss.at(gi);
 
 		    mu(G) = jaak_update_mu(y, X, XAX, mu, sqrt(diagvec(S)), g, lambda, G, Gc);
-		    s(G)  = jaak_update_S(XAX, mu, S, s(G), lambda, G);
+		    s(G)  = jaak_update_S(XAX, mu, S, s, lambda, G);
 
 		    double tg = jaak_update_g(y, X, XAX, mu, S, g, lambda, w, G, Gc);
 		    for (uword j : G) g(j) = tg;
@@ -991,6 +991,7 @@ class update_S_fn
 	    XAX(XAX), mu(mu), lambda(lambda), G(G) { }
 
 	double EvaluateWithGradient(const arma::mat &w, arma::mat &grad) {
+
 	    const mat psi = XAX(G, G);
 	    const mat S = arma::inv(psi + arma::diagmat(w));
 	    const vec ds = arma::diagvec(S);
@@ -1014,18 +1015,19 @@ class update_S_fn
 };
 
 
-vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, vec s, 
+vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, const vec &s, 
 	const double lambda, const uvec &G)
 {
     ens::L_BFGS opt;
     update_S_fn fn(XAX, mu, lambda, G);
     opt.MaxIterations() = 8;
     
-    opt.Optimize(fn, s);
+    vec sG = s(G);
+    opt.Optimize(fn, sG);
 
     // update S
-    S = arma::inv(XAX(G, G) + diagmat(s)); 
-    return s;
+    S = arma::inv(XAX(G, G) + diagmat(sG)); 
+    return sG;
 }
 
 

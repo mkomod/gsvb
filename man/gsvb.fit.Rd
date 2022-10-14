@@ -8,6 +8,7 @@ gsvb.fit(
   y,
   X,
   groups,
+  family = "linear",
   intercept = TRUE,
   diag_covariance = TRUE,
   lambda = 1,
@@ -23,7 +24,9 @@ gsvb.fit(
   track_elbo_mcn = 500,
   niter = 150,
   tol = 0.001,
-  verbose = TRUE
+  verbose = TRUE,
+  thresh = 0.02,
+  l = 5
 )
 }
 \arguments{
@@ -32,6 +35,14 @@ gsvb.fit(
 \item{X}{input matrix.}
 
 \item{groups}{group structure.}
+
+\item{family}{which family and bound to use when fitting the model. One of:
+\itemize{
+    \item{\code{"linear"}}{ linear model}
+    \item{\code{"logit-jensens"}}{ logistic model using Jensen's inq. to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
+    \item{\code{"logit-jaakkola"}}{ logistic model using Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
+    \item{\code{"logit-refined"}}{ logistic model using a tighter bound for expected log-likelihood. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
+}}
 
 \item{intercept}{should an intercept term be included.}
 
@@ -64,17 +75,21 @@ gsvb.fit(
 \item{tol}{convergence tolerance.}
 
 \item{verbose}{print additional information.}
+
+\item{thresh}{threshold used for the "logit-refined" family}
+
+\item{l}{number of parameters used for the "logit-refined" family, samller is faster but more approximate.}
 }
 \value{
 The program output is a list containing:
 \item{mu}{the means for the variational posterior.}
-\item{s}{the std. dev. or covaraince matrices for the variational posterior.}
+\item{s}{the std. dev. or covariance matrices for the variational posterior.}
 \item{g}{the group inclusion probabilities.}
 \item{beta_hat}{the variational posterior mean.}
-\item{tau_hat}{the mean of the variance term.}
-\item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribtuion.}
-\item{tau_b}{the scale parameter for the variational posterior of tau^2.}
-\item{parameters}{a list containing the model hyperparameters.}
+\item{tau_hat}{the mean of the variance term. (linear only)}
+\item{tau_a}{the shape parameter for the variational posterior of tau^2. This is an inverse-Gamma(tau_a0, tau_b0) distribution. (linear only)}
+\item{tau_b}{the scale parameter for the variational posterior of tau^2. (linear only)}
+\item{parameters}{a list containing the model hyperparameters and other model information}
 \item{converged}{a boolean indicating if the algorithm has converged.}
 \item{iter}{the number of iterations the algorithm was ran for.}
 }
@@ -86,6 +101,8 @@ Fit high-dimensional group-sparse regression models
 }
 
 \examples{
+library(gsvb)
+
 n <- 100
 p <- 1000
 gsize <- 5

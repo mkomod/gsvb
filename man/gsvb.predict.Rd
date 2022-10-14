@@ -7,7 +7,7 @@
 gsvb.predict(
   fit,
   newdata,
-  mcn = 10000,
+  samples = 10000,
   quantiles = c(0.025, 0.975),
   return_samples = FALSE
 )
@@ -17,7 +17,7 @@ gsvb.predict(
 
 \item{newdata}{input feature matrix.}
 
-\item{mcn}{number of Monte-Carlo samples.}
+\item{samples}{number of Monte-Carlo samples.}
 
 \item{quantiles}{quantiles to return}
 

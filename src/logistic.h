@@ -50,7 +50,7 @@ vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,
 vec jaak_update_s(const mat &XAX, const vec &mu, 
 	const vec &s, const double lambda, const uvec &G);
 
-vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, vec s, 
+vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, const vec &s, 
 	const double lambda, const uvec &G);
 
 double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
@@ -61,7 +61,6 @@ double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
 double jaak_update_g(const vec &y, const mat &X, const mat &XAX, const vec &mu,
 	const mat &S, const vec &g, const double lambda, const double w,
 	const uvec &G, const uvec &Gc);
-
 
 vec jaak_update_l(const mat &X, const vec &mu, const vec &s, const vec &g);
 
