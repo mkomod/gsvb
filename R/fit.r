@@ -130,15 +130,16 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     }
     if (family == 2) # LOGISTIC - JENSEN BOUND
     {
+	diag_covariance <- TRUE
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
-	    mu, s, g, TRUE, thresh, l, niter, 2,
-	    tol, verbose)
+	    mu, s, g, diag_covariance, track_elbo, track_elbo_every,
+	    track_elbo_mcn, thresh, l, niter, 2, tol, verbose)
     }
     if (family == 3) # LOGISTIC - JAAKKOLA BOUND
     {
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
-	    mu, s, g, diag_covariance, thresh, l, niter, 3,
-	    tol, verbose)
+	    mu, s, g, diag_covariance, track_elbo, track_elbo_every,
+	    track_elbo_mcn, thresh, l, niter, 3, tol, verbose)
     }
     if (family == 4) # LOGISTIC - OUR BOUND
     {
@@ -146,10 +147,11 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	    # if mu is initialized by the group LASSO then
 	    # first run jaakkola until convergence
 	    # then run the new bound to refine the fit
+	diag_covariance <- TRUE
 
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
-	    mu, s, g, TRUE, thresh, l, niter, 3, 
-	    tol, verbose)
+	    mu, s, g, diag_covariance, FALSE, track_elbo_every,
+	    track_elbo_mcn, thresh, l, niter, 3, tol, verbose)
 	# mu <- f$mu
 	# s <- f$s
 	# g <- f$g
@@ -158,8 +160,8 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	# if mu is provided by the user then this input is taken
 	# and refined with our tight upper bound.
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
-	    f$mu, f$s, f$g, TRUE, thresh, l, niter, 1,
-	    tol, verbose)
+	    f$mu, f$s, f$g, diag_covariance, track_elbo, track_elbo_every,
+	    track_elbo_mcn, thresh, l, niter, 1, tol, verbose)
     }
     
     if (diag_covariance == FALSE && any(c(1,3) == family)) {
