@@ -5,7 +5,8 @@
 // [[Rcpp::export]]
 Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, 
     const double a0, const double b0, vec mu, vec s, vec g, 
-    const bool diag_cov, const double thresh, const int l, 
+    const bool diag_cov, bool track_elbo, const uword track_elbo_every, 
+    const uword track_elbo_mcn, const double thresh, const int l, 
     unsigned int niter, unsigned int alg, double tol, bool verbose)
 {
     const uword n = X.n_rows;
@@ -59,10 +60,8 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	}
     }
 
-    // if not constrained we are using a full covariance for S
-
-
     uword num_iter = niter;
+    std::vector<double> elbo_values;
     bool converged = false;
 
     for (unsigned int iter = 1; iter <= niter; ++iter)
@@ -88,13 +87,13 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	    {
 		uword gi = arma::find(ugroups == group).eval().at(0);
 
-		mu(G) = update_m(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
+		mu(G) = nb_update_m(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
 		Xm.col(gi) = X.cols(G) * mu(G);
 
-		s(G)  = update_s(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
+		s(G)  = nb_update_s(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, thresh, l);
 		Xs.col(gi) = (X.cols(G) % X.cols(G)) * (s(G) % s(G));
 
-		double tg = update_g(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, 
+		double tg = nb_update_g(y, X, mu, s, ug, lambda, gi, G, Xm, Xs, 
 			thresh, l, w);
 		for (uword j : G) g(j) = tg;
 		ug(gi) = tg;
@@ -140,6 +139,12 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 		}
 	    }
 	}
+
+	if (track_elbo && (iter % track_elbo_every == 0)) {
+	    double e = elbo_logistic(y, X, groups, mu, s, g, Ss, lambda, w, track_elbo_mcn,
+		    diag_cov);
+	    elbo_values.push_back(e);
+	}
 	
 	// check for break, print iter
 	Rcpp::checkUserInterrupt();
@@ -160,14 +165,11 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
     }
     
     // compute elbo for final eval
-    // if (track_elbo) {
-	// double e = diag_cov ?
-	    // elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
-		// lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
-	    // elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
-		// lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
-	// elbo_values.push_back(e);
-    // }
+    if (track_elbo) {
+	double e = elbo_logistic(y, X, groups, mu, s, g, Ss, lambda, w, track_elbo_mcn,
+		diag_cov);
+	elbo_values.push_back(e);
+    }
 
     return Rcpp::List::create(
 	Rcpp::Named("mu") = mu,
@@ -175,8 +177,8 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	Rcpp::Named("gamma") = g,
 	Rcpp::Named("converged") = converged,
 	Rcpp::Named("iterations") = num_iter,
-	Rcpp::Named("S") = Ss
-	// Rcpp::Named("elbo") = elbo_values
+	Rcpp::Named("S") = Ss,
+	Rcpp::Named("elbo") = elbo_values
     );
 }
 
@@ -479,10 +481,10 @@ vec dell_ds(const mat &X, const mat &Xm, const mat &Xs, const vec &s,
 }
 
 // ----------------- mu -------------------
-class update_m_fn
+class nb_update_m_fn
 {
     public:
-	update_m_fn(const vec &y, const mat &X, const vec &m,
+	nb_update_m_fn(const vec &y, const mat &X, const vec &m,
 		const vec &s, vec ug, double lambda, const uword group,
 		const uvec G, mat &Xm, const mat &Xs, double thresh, int l) :
 	    y(y), X(X), m(m), s(s), ug(ug), lambda(lambda),
@@ -524,13 +526,13 @@ class update_m_fn
 };
 
 
-vec update_m(const vec &y, const mat &X, const vec &m,
+vec nb_update_m(const vec &y, const mat &X, const vec &m,
 	const vec &s, const vec &ug, double lambda, uword group,
 	const uvec G, mat &Xm, const mat &Xs, const double thresh, const int l)  
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    update_m_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
+    nb_update_m_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
 
     arma::vec mG = m(G);
     opt.Optimize(fn, mG);
@@ -541,10 +543,10 @@ vec update_m(const vec &y, const mat &X, const vec &m,
 
 
 // ----------------- s -------------------
-class update_s_fn
+class nb_update_s_fn
 {
     public:
-	update_s_fn(const vec &y, const mat &X, const vec &m, const vec &s, 
+	nb_update_s_fn(const vec &y, const mat &X, const vec &m, const vec &s, 
 		vec ug, const double lambda, const uword group, const uvec G, 
 		const mat &Xm, mat &Xs, const double thresh, const int l) :
 	    y(y), X(X), m(m), s(s), ug(ug), lambda(lambda),
@@ -589,14 +591,14 @@ class update_s_fn
 };
 
 
-vec update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug, 
+vec nb_update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug, 
 	const double lambda, const uword group, const uvec G, 
 	const mat &Xm, mat &Xs, const double thresh, const int l)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    update_s_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
-
+    nb_update_s_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
+    
     vec u = log(s(G));
     opt.Optimize(fn, u);
 
@@ -605,7 +607,7 @@ vec update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug,
 
 
 // ----------------- g -------------------
-double update_g(const vec &y, const mat &X, const vec &m, const vec &s, 
+double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s, 
 	vec ug, const double lambda, const uword group,
 	const uvec &G, const mat &Xm, const mat &Xs,
 	const double thresh, const int l, const double w)
@@ -983,10 +985,10 @@ vec a(const vec &x)
 // JAAKKOLA
 // Updates for S
 // ----------------------------------------
-class update_S_fn
+class jaak_update_S_fn
 {
     public:
-	update_S_fn(const mat &XAX, const vec &mu, const double lambda, 
+	jaak_update_S_fn(const mat &XAX, const vec &mu, const double lambda, 
 		const uvec &G) :
 	    XAX(XAX), mu(mu), lambda(lambda), G(G) { }
 
@@ -1019,7 +1021,7 @@ vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, const vec &s,
 	const double lambda, const uvec &G)
 {
     ens::L_BFGS opt;
-    update_S_fn fn(XAX, mu, lambda, G);
+    jaak_update_S_fn fn(XAX, mu, lambda, G);
     opt.MaxIterations() = 8;
     
     vec sG = s(G);
@@ -1031,4 +1033,70 @@ vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, const vec &s,
 }
 
 
-// TODO: IMPLEMENT ELBO (with MCI as more general)
+// ---------------------------------------- 
+// ELBO
+// ----------------------------------------
+// [[Rcpp::export]]
+double elbo_logistic(const vec &y, const mat &X, const uvec &groups,
+	const vec &mu, const vec &s, const vec &g, const std::vector<mat> &Ss,
+	const double lambda, const double w, const uword mcn, const bool diag)
+{
+    double res = 0.0;
+
+    uvec ugroups = arma::unique(groups);
+
+    // noramlizing consts
+    for (uword group : ugroups) 
+    {
+	uvec G = find(groups == group);
+	uword k = G(0);
+
+	double mk = G.size();
+	double Ck = -mk*log(2.0) - 0.5*(mk-1.0)*log(M_PI) - lgamma(0.5*(mk+1));
+
+	res += g(k) * Ck +
+	    0.5 * g(k) * mk +
+	    g(k) * mk * log(lambda) -
+	    g(k) * log((1e-8 + g(k)) / (1e-8 + w)) -	// add 1e-8 to prevent -Inf
+	    (1 - g(k)) * log((1-g(k) + 1e-8) / (1 - w));
+    }
+
+
+    // monte carlo integral for intractable terms
+    double mci = 0.0;
+    vec beta = vec(mu.n_rows, arma::fill::zeros);
+
+    for (uword iter = 0; iter < mcn; ++iter) {
+	for (uword group : ugroups)
+	{
+	    uvec G = find(groups == group);
+	    uword k = G(0);
+	    double mk = G.size();
+
+	    // Compute the Monte-Carlo integral of E_Q [ lambda * || b_{G_k} || ]
+	    vec beta_G = vec(mk, arma::fill::zeros);
+	    if (diag) {
+		beta_G = arma::randn(mk) % s(G) + mu(G);
+	    } else {
+		uword gi = arma::find(ugroups == group).eval().at(0);
+		mat S = Ss.at(gi);
+		
+		beta_G = arma::sqrtmat_sympd(S) * arma::randn(mk) + mu(G);
+	    }
+
+	    mci -= lambda * g(k) * norm(beta_G, 2);
+	    
+	    if (R::runif(0, 1) <= g(k)) {
+		beta(G) = beta_G;
+	    }
+	}
+	
+	uvec nzero = find(beta != 0);
+	vec Xb = X.cols(nzero) * beta(nzero);
+	mci += dot(y, Xb) - accu(Xb.for_each(log1pexp));
+    }
+    mci = mci / static_cast<double>(mcn);
+    res += mci;
+
+    return(res);
+}

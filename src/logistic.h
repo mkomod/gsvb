@@ -10,15 +10,15 @@
 double ell(const mat &Xm, const mat &Xs,  const vec &g, double thresh, int l);
 double tll(const vec &mu, const vec &sig, const int l);
 
-vec update_m(const vec &y, const mat &X, const vec &m, const vec &s, const vec &ug,
+vec nb_update_m(const vec &y, const mat &X, const vec &m, const vec &s, const vec &ug,
 	double lambda, uword group, const uvec G, mat &Xm, const mat &Xs, 
 	const double thresh, const int l);
 
-vec update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug, 
+vec nb_update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug, 
 	const double lambda, const uword group, const uvec G, 
 	const mat &Xm, mat &Xs, const double thresh, const int l);
 
-double update_g(const vec &y, const mat &X, const vec &m, const vec &s, 
+double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s, 
 	vec ug, const double lambda, const uword group,
 	const uvec &G, const mat &Xm, const mat &Xs,
 	const double thresh, const int l, const double w);
@@ -71,5 +71,9 @@ vec jaak_update_l(const mat &X, const vec &mu, const std::vector<mat> &Ss,
 vec a(const vec &x);
 
 
+// ELBO
+double elbo_logistic(const vec &y, const mat &X, const uvec &groups,
+	const vec &mu, const vec &s, const vec &g, const std::vector<mat> &Ss,
+	const double lambda, const double w, const uword mcn, const bool diag);
 
 #endif
