@@ -27,34 +27,44 @@
 #' @export
 gsvb.elbo <- function(fit, y, X, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
 {
+    n <- nrow(X)
+    p <- ncol(X)
+    groups <- fit$parameters$groups
+
     if (fit$parameters$intercept) {
 	X <- cbind(rep(1, nrow(X)), X)
     }
-    groups <- fit$parameters$groups
 
-    yty <- sum(y * y)
-    yx <- t(X) %*% y
-    xtx <- t(X) %*% X
+    if (fit$parameters$family == 1) {
+	yty <- sum(y * y)
+	yx <- t(X) %*% y
+	xtx <- t(X) %*% X
 
-    n <- nrow(X)
-    p <- ncol(X)
-    
-    if (fit$parameters$family != 1) {
-	stop("NOT IMPLEMENTED")
+	res <- ifelse(fit$parameters$diag_covariance,
+	    elbo_linear_c(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
+	    fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
+	    fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
+	    mcn, approx, approx_thresh),
+
+	    elbo_linear_u(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
+	    fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
+	    fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
+	    mcn, approx, approx_thresh)
+	)
+    } else if (any(fit$parameters$family == c(2,3,4))) {
+
+	if (fit$parameters$diag_covariance) {
+	    s <- fit$s
+	} else {
+	    s <- 0
+	}
+
+	w <- fit$parameters$a0 / (fit$parameters$a0 + fit$parameters$b0)
+
+	res <- elbo_logistic(y, X, groups, fit$mu, s, fit$g[groups], fit$s,
+	    fit$parameters$lambda, w, mcn, fit$parameters$diag_covariance)
     }
 
-    res <- ifelse(fit$parameters$diag_covariance,
-
-	elbo_linear_c(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
-	fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
-	fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
-	mcn, approx, approx_thresh),
-
-	elbo_linear_u(yty, yx, xtx, groups, n, p, fit$mu, fit$s, fit$g[groups],
-	fit$tau_a, fit$tau_b, fit$parameters$lambda, fit$parameters$a0, 
-	fit$parameters$b0, fit$parameters$tau_a0, fit$parameters$tau_b0,
-	mcn, approx, approx_thresh)
-    )
 
     return(res)
 }
