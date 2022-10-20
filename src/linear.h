@@ -13,8 +13,11 @@ vec update_mu(const uvec &G, const uvec &Gc, const mat &xtx,
 vec update_s(const uvec &G, const mat &xtx, const vec &mu, 
 	const vec &s, const double sigma, const double lambda);
 
-vec update_S(const uvec &G, const mat &xtx, const vec &mu, 
-	mat &S, vec s, const double e_tau, const double lambda);
+// vec update_S(const uvec &G, const mat &xtx, const vec &mu, 
+// 	mat &S, vec s, const double e_tau, const double lambda);
+
+double update_S(const uvec &G, const mat &xtx, const vec &mu, 
+	mat &S, double s, const double e_tau, const double lambda);
 
 double update_g(const uvec &G, const uvec &Gc, const mat &xtx,
 	const vec &yx, const vec &mu, const vec &s, const vec &g, double sigma,

@@ -27,8 +27,9 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 	    Ss.push_back(arma::diagmat(s(G)));
 	}
     }
+    vec v = vec(ugroups.size(), arma::fill::ones);
 
-    vec mu_old, s_old, g_old;
+    vec mu_old, s_old, g_old, v_old;
     double tau_a = tau_a0, tau_b = tau_b0, e_tau = tau_a0 / tau_b0;
 
     uword num_iter = niter;
@@ -37,7 +38,12 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 
     for (unsigned int iter = 1; iter <= niter; ++iter)
     {
-	mu_old = mu; s_old = s; g_old = g;
+	mu_old = mu; g_old = g;
+	if (diag_cov) {
+	    s_old = s; 
+	} else {
+	    v_old = v;
+	}
 
 	// update expected value of tau^2
 	e_tau = tau_a / tau_b;
@@ -62,7 +68,7 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 		mat &S = Ss.at(gi);
 
 		mu(G) = update_mu(G, Gc, xtx, yx, mu, sqrt(diagvec(S)), g, e_tau, lambda);
-		s(G)  = update_S(G, xtx, mu, S, s(G), e_tau, lambda);
+		v(gi)  = update_S(G, xtx, mu, S, v(gi), e_tau, lambda);
 		double tg = update_g(G, Gc, xtx, yx, mu, S, g, e_tau, lambda, w);
 		for (uword j : G) g(j) = tg;
 	    }
@@ -91,9 +97,11 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 	}
 
 	// check convergence
+	bool var_conv = diag_cov ? sum(abs(s_old - s)) < tol : sum(abs(v_old - v)) < tol; 
+
 	if (sum(abs(mu_old - mu)) < tol &&
-	    sum(abs(s_old - s))   < tol &&
-	    sum(abs(g_old - g))   < tol) 
+	    var_conv &&
+	    sum(abs(g_old - g)) < tol) 
 	{
 	    if (verbose)
 		Rcpp::Rcout << "\nConverged in " << iter << " iterations\n";
@@ -113,7 +121,7 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
 	elbo_values.push_back(e);
     }
-
+    
     return Rcpp::List::create(
 	Rcpp::Named("mu") = mu,
 	Rcpp::Named("sigma") = s,
@@ -263,8 +271,9 @@ class update_S_fn
 		const double e_tau, const double lambda) :
 	    G(G), xtx(xtx), mu(mu), e_tau(e_tau), lambda(lambda) { }
 
-	double EvaluateWithGradient(const arma::mat &w, arma::mat &grad) {
+	double EvaluateWithGradient(const mat &v, mat &grad) {
 	    const mat psi = xtx(G, G);
+	    const vec w = vec(G.size(), arma::fill::value(v(0, 0)));
 	    const mat S = arma::inv(e_tau * psi + arma::diagmat(w));
 	    const vec ds = arma::diagvec(S);
 
@@ -272,9 +281,9 @@ class update_S_fn
 		0.5 * log(arma::det(S)) + 
 		lambda * pow(sum(ds) + dot(mu(G), mu(G)), 0.5);
 
-	    // gradient wrt. w
-	    double tw = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
-	    grad = 0.5 * (S % S) * (w - 2.0 * tw);
+	    // gradient wrt. v
+	    double tv = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
+	    grad = 0.5 * (v(0, 0) - 2.0 * tv) * accu(S % S);
 
 	    return res;
 	}
@@ -288,18 +297,20 @@ class update_S_fn
 };
 
 
-vec update_S(const uvec &G, const mat &xtx, const vec &mu, 
-	mat &S, vec s, const double e_tau, const double lambda)
+double update_S(const uvec &G, const mat &xtx, const vec &mu, 
+	mat &S, double s, const double e_tau, const double lambda)
 {
     ens::L_BFGS opt;
     update_S_fn fn(G, xtx, mu, e_tau, lambda);
     opt.MaxIterations() = 8;
-    
-    opt.Optimize(fn, s);
+   
+    mat v = mat(1, 1);
+    v(0, 0) = s;
+    opt.Optimize(fn, v);
 
     // update S
-    S = arma::inv(e_tau * xtx(G, G) + diagmat(s)); 
-    return s;
+    S = arma::inv(e_tau * xtx(G, G) + v(0, 0) * arma::eye(G.size(), G.size())); 
+    return v(0, 0);
 }
 
 
