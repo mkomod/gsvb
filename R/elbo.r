@@ -53,15 +53,20 @@ gsvb.elbo <- function(fit, y, X, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
 	)
     } else if (any(fit$parameters$family == c(2,3,4))) {
 
-	if (fit$parameters$diag_covariance) {
+	if (fit$parameters$diag_covariance) 
+	{
+	    # if cov diag use fit$s
 	    s <- fit$s
+	    Ss <- list(matrix(0))
 	} else {
-	    s <- 0
+	    # use Ss
+	    s <- rep(1, p)
+	    Ss <- fit$s
 	}
 
 	w <- fit$parameters$a0 / (fit$parameters$a0 + fit$parameters$b0)
 
-	res <- elbo_logistic(y, X, groups, fit$mu, s, fit$g[groups], fit$s,
+	res <- elbo_logistic(y, X, groups, fit$mu, s, fit$g[groups], Ss,
 	    fit$parameters$lambda, w, mcn, fit$parameters$diag_covariance)
     }
 
