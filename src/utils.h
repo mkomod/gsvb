@@ -10,4 +10,10 @@ vec sigmoid(const vec &x);
 
 vec mvnMGF(const mat &X, const vec &mu, const vec &sig);
 
+vec compute_P_G(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &G);
+
+vec compute_P(const mat &X, const vec &mu, const vec &s, const vec &g, 
+	const uvec &groups);
+
 #endif

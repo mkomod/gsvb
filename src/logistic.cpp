@@ -640,26 +640,6 @@ double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 // JENSENS
 // updates of mu, s, g with Jensens
 // ----------------------------------------
-inline vec compute_P_G(const mat &X, const vec &mu, const vec &s, const vec &g, 
-	const uvec &G)
-{
-    return ( (1 - g(G(0))) + g(G(0)) * mvnMGF(X.cols(G), mu(G), s(G)) );
-}
-
-vec compute_P(const mat &X, const vec &mu, const vec &s, const vec &g, 
-	const uvec &groups)
-{
-    vec P = vec(X.n_rows, arma::fill::ones);
-    const uvec ugroups = unique(groups);
-
-    for (uword group : ugroups) {
-	uvec G = find(groups == group);
-	P %= compute_P_G(X, mu, s, g, G);
-    }
-    return P;
-}
-
-
 class jen_update_mu_fn
 {
     public:
