@@ -42,6 +42,7 @@ gsvb.fit(
     \item{\code{"logit-jensens"}}{ logistic model using Jensen's inq. to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
     \item{\code{"logit-jaakkola"}}{ logistic model using Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
     \item{\code{"logit-refined"}}{ logistic model using a tighter bound for expected log-likelihood. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
+    \item{\code{"poisson"}}{ poisson regression with log link function. Currently only supports variational familiy with a diagonal covariance matrix.}
 }}
 
 \item{intercept}{should an intercept term be included.}

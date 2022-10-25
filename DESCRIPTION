@@ -7,6 +7,6 @@ Author: Michael Komodromos
 Maintainer: Michael Komodromos <mk1019@ic.ac.uk>
 Description:
 License:
-Imports: Rcpp, gglasso
+Imports: Rcpp, gglasso, glmnet
 LinkingTo: Rcpp, RcppArmadillo, RcppEnsmallen
 RoxygenNote: 7.1.1
