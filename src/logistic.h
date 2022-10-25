@@ -25,15 +25,15 @@ double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 
 
 // jensens functions
-vec jen_update_mu(const vec &y, const mat &X, const vec &mu, const vec &sG,
-	const double lambda, const uvec &G, const vec &P);
+vec jen_update_mu(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const uvec &G, const vec &P);
 
-vec jen_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const uvec &G, const vec &P);
+vec jen_update_s(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const uvec &G, const vec &P);
 
-double jen_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const double w, const uvec &G, const vec &P);
-
+double jen_update_g(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const double w, const uvec &G, 
+	const vec &P);
 
 // jaakkola functions
 vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,

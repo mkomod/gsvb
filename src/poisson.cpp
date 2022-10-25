@@ -9,10 +9,12 @@ Rcpp::List fit_poisson(vec y, mat X, uvec groups, const double lambda,
 {
     const uvec ugroups = arma::unique(groups);
     const double w = a0 / (a0 + b0);
+    const mat XX = X % X;
+    const vec yX = X.t() * y;
     
     // init
     vec mu_old, s_old, g_old;
-    vec P = compute_P(X, mu, s, g, groups);
+    vec P = compute_P(X, XX, mu, s, g, groups);
 
     uword num_iter = niter;
     std::vector<double> elbo_values;
@@ -25,16 +27,15 @@ Rcpp::List fit_poisson(vec y, mat X, uvec groups, const double lambda,
 	for (uword group : ugroups)
 	{
 	    uvec G  = arma::find(groups == group);
-	    
-	    P /= compute_P_G(X, mu, s, g, G);
+	    P /= compute_P_G(X, XX, mu, s, g, G);
 
-	    mu(G) = pois_update_mu(y, X, mu, s, lambda, G, P);
-	    s(G)  = pois_update_s( y, X, mu, s, lambda, G, P);
+	    mu(G) = pois_update_mu(yX, X, XX, mu, s, lambda, G, P);
+	    s(G)  = pois_update_s(     X, XX, mu, s, lambda, G, P);
 
-	    double tg = pois_update_g(y, X, mu, s, lambda, w, G, P);
+	    double tg = pois_update_g(yX, X, XX, mu, s, lambda, w, G, P);
 	    for (uword j : G) g(j) = tg;
 
-	    P %= compute_P_G(X, mu, s, g, G);
+	    P %= compute_P_G(X, XX, mu, s, g, G);
 	}
 
 	if (track_elbo && (iter % track_elbo_every == 0)) {
@@ -83,16 +84,17 @@ Rcpp::List fit_poisson(vec y, mat X, uvec groups, const double lambda,
 class pois_update_mu_fn
 {
     public:
-	pois_update_mu_fn(const vec &y, const mat &X, const vec &s, 
-		const double lambda, const uvec &G, const vec &P) :
-	    y(y), X(X), s(s), lambda(lambda), G(G), P(P)
+	pois_update_mu_fn(const vec &yX, const mat &X, const mat &XX,
+		const vec &s, const double lambda, const uvec &G,
+		const vec &P) :
+	    yX(yX), X(X), XX(XX), s(s), lambda(lambda), G(G), P(P)
 	{};
 
 	double EvaluateWithGradient(const mat &mG, mat &grad)
 	{
-	    const vec PP = P % mvnMGF(X.cols(G), mG, s(G));
+	    const vec PP = P % mvnMGF(X.cols(G), XX.cols(G), mG, s(G));
 
-	    double res = - dot(y, (X.cols(G) * mG)) +
+	    double res = - dot(yX(G), mG) +
 		accu(PP) +
 		lambda * sqrt(accu(s(G) % s(G) + mG % mG)); 
 
@@ -103,15 +105,16 @@ class pois_update_mu_fn
 	    }
 	    
 	    grad = dPPmG -
-		X.cols(G).t() * y +
+		yX(G) +
 		lambda * mG * pow(dot(s(G), s(G)) + dot(mG, mG), -0.5);
 	    
 	    return res;
 	};
 
     private:
-	const vec &y;
+	const vec &yX;
 	const mat &X;
+	const mat &XX;
 	const vec &s;
 	const double lambda;
 	const uvec &G;
@@ -119,12 +122,12 @@ class pois_update_mu_fn
 };
 
 
-vec pois_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const uvec &G, const vec &P)
+vec pois_update_mu(const vec &yX, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    pois_update_mu_fn fn(y, X, s, lambda, G, P);
+    pois_update_mu_fn fn(yX, X, XX, s, lambda, G, P);
 
     arma::vec mG = mu(G);
     opt.Optimize(fn, mG);
@@ -137,16 +140,16 @@ vec pois_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
 class pois_update_s_fn
 {
     public:
-	pois_update_s_fn(const vec &y, const mat &X, const vec &mu,
+	pois_update_s_fn(const mat &X, const mat &XX, const vec &mu,
 		const double lambda, const uvec &G, const vec &P) :
-	    y(y), X(X), mu(mu), lambda(lambda), G(G), P(P)
+	    X(X), XX(XX), mu(mu), lambda(lambda), G(G), P(P)
 	{};
 
 	double EvaluateWithGradient(const mat &u, mat &grad)
 	{
 	    const vec sG = exp(u);
 
-	    const vec PP = P % mvnMGF(X.cols(G), mu(G), sG);
+	    const vec PP = P % mvnMGF(X.cols(G), XX.cols(G), mu(G), sG);
 
 	    double res = accu(PP) -
 		accu(log(sG)) +
@@ -155,7 +158,7 @@ class pois_update_s_fn
 	    vec dPPsG = vec(sG.size(), arma::fill::zeros);
 
 	    for (uword j = 0; j < sG.size(); ++j) {
-		dPPsG(j) = accu( sG(j) * (X.col(G(j)) % X.col(G(j))) % PP);
+		dPPsG(j) = sG(j) * accu((XX.col(G(j)) % PP));
 	    }
 	    
 	    // df/duG = df/dsG * dsG/du
@@ -167,8 +170,8 @@ class pois_update_s_fn
 	};
 
     private:
-	const vec &y;
 	const mat &X;
+	const mat &XX;
 	const vec &mu;
 	const double lambda;
 	const uvec &G;
@@ -176,12 +179,12 @@ class pois_update_s_fn
 };
 
 
-vec pois_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
+vec pois_update_s(const mat &X, const mat &XX, const vec &mu, const vec &s,
 	const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    pois_update_s_fn fn(y, X, mu, lambda, G, P);
+    pois_update_s_fn fn(X, XX, mu, lambda, G, P);
 
     arma::vec u = log(s(G));
     opt.Optimize(fn, u);
@@ -191,14 +194,15 @@ vec pois_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
 
 
 // --------- update g ----------
-double pois_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const double w, const uvec &G, const vec &P)
+double pois_update_g(const vec &yX, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const double w, const uvec &G, 
+	const vec &P)
 {
     const double mk = G.size();
     const double Ck = mk * log(2.0) + 0.5*(mk-1.0)*log(M_PI) + 
 	lgamma(0.5*(mk + 1.0));
 
-    const vec P1 = mvnMGF(X.cols(G), mu(G), s(G));
+    const vec P1 = mvnMGF(X.cols(G), XX.cols(G), mu(G), s(G));
 
     const double res =
 	log(w / (1 - w)) + 
@@ -207,7 +211,7 @@ double pois_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
 	mk * log(lambda) +
 	0.5 * accu(log(2.0 * M_PI * s(G) % s(G))) -
 	lambda * sqrt(dot(s(G), s(G)) + dot(mu(G), mu(G))) +
-	dot(y, X.cols(G) * mu(G)) -
+	dot(yX(G), mu(G)) -
 	sum(P % (P1 - 1));
 
     return 1.0/(1.0 + exp(-res));
@@ -222,7 +226,8 @@ double elbo_poisson(const vec &y, const mat &X, const uvec &groups,
 	const vec &mu, const vec &s, const vec &g, const double lambda, 
 	const double w, const uword mcn)
 {
-    const vec P = compute_P(X, mu, s, g, groups);
+    const mat &XX = X % X;
+    const vec P = compute_P(X, XX, mu, s, g, groups);
     double res = elbo_poisson(y, X, groups, mu, s, g, P, lambda, w, mcn);
 
     return(res);

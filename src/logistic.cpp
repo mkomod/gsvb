@@ -23,6 +23,7 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
     vec ug = vec(M);
 
     // init jensens
+    mat XX = mat(n, p);
     vec P = vec(n , arma::fill::zeros);
 
     // init jaakkola
@@ -43,8 +44,10 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	}
     
     // jensens init
-    if (alg == 2) 
-	P = compute_P(X, mu, s, g, groups);
+    if (alg == 2) {
+	XX = X % X;
+	P = compute_P(X, XX, mu, s, g, groups);
+    }
 
     // jaak init
     if (alg == 3) {
@@ -102,15 +105,15 @@ Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda,
 	    // update using jensens
 	    if (alg == 2)
 	    {
-		P /= compute_P_G(X, mu, s, g, G);
+		P /= compute_P_G(X, XX, mu, s, g, G);
 
-		mu(G) = jen_update_mu(y, X, mu, s, lambda, G, P);
-		s(G)  = jen_update_s(y, X, mu, s, lambda, G, P);
+		mu(G) = jen_update_mu(y, X, XX, mu, s, lambda, G, P);
+		s(G)  = jen_update_s( y, X, XX, mu, s, lambda, G, P);
 
-		double tg = jen_update_g(y, X, mu, s, lambda, w, G, P);
+		double tg = jen_update_g(y, X, XX, mu, s, lambda, w, G, P);
 		for (uword j : G) g(j) = tg;
 
-		P %= compute_P_G(X, mu, s, g, G);
+		P %= compute_P_G(X, XX, mu, s, g, G);
 	    }
 
 	    // update using jaakola bound
@@ -643,15 +646,15 @@ double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 class jen_update_mu_fn
 {
     public:
-	jen_update_mu_fn(const vec &y, const mat &X, const vec &mu,
-		const vec &s, const double lambda, const uvec &G, 
-		const vec &P) :
-	    y(y), X(X), mu(mu), s(s), lambda(lambda), G(G), P(P)
+	jen_update_mu_fn(const vec &y, const mat &X, const mat &XX,
+		const vec &mu, const vec &s, const double lambda,
+		const uvec &G, const vec &P) :
+	    y(y), X(X), XX(XX), mu(mu), s(s), lambda(lambda), G(G), P(P)
 	{};
 
 	double EvaluateWithGradient(const mat &mG, mat &grad)
 	{
-	    const vec PP = P % mvnMGF(X.cols(G), mG, s(G));
+	    const vec PP = P % mvnMGF(X.cols(G), XX.cols(G), mG, s(G));
 
 	    double res = accu(log1p(PP) - y % (X.cols(G) * mG)) +
 		lambda * sqrt(accu(s(G) % s(G) + mG % mG)); 
@@ -672,6 +675,7 @@ class jen_update_mu_fn
     private:
 	const vec &y;
 	const mat &X;
+	const mat &XX;
 	const vec &mu;
 	const vec &s;
 	const double lambda;
@@ -680,12 +684,12 @@ class jen_update_mu_fn
 };
 
 
-vec jen_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const uvec &G, const vec &P)
+vec jen_update_mu(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    jen_update_mu_fn fn(y, X, mu, s, lambda, G, P);
+    jen_update_mu_fn fn(y, X, XX, mu, s, lambda, G, P);
 
     arma::vec mG = mu(G);
     opt.Optimize(fn, mG);
@@ -697,16 +701,17 @@ vec jen_update_mu(const vec &y, const mat &X, const vec &mu, const vec &s,
 class jen_update_s_fn
 {
     public:
-	jen_update_s_fn(const vec &y, const mat &X, const vec &mu,
-		const double lambda, const uvec &G, const vec &P) :
-	    y(y), X(X), mu(mu), lambda(lambda), G(G), P(P)
+	jen_update_s_fn(const vec &y, const mat &X, const mat &XX,
+		const vec &mu, const double lambda, const uvec &G, 
+		const vec &P) :
+	    y(y), X(X), XX(XX), mu(mu), lambda(lambda), G(G), P(P)
 	{};
 
 	double EvaluateWithGradient(const mat &u, mat &grad)
 	{
 	    const vec sG = exp(u);
 
-	    const vec PP = P % mvnMGF(X.cols(G), mu(G), sG);
+	    const vec PP = P % mvnMGF(X.cols(G), XX.cols(G), mu(G), sG);
 
 	    double res = accu(log1p(PP)) -
 		accu(log(sG)) +
@@ -731,6 +736,7 @@ class jen_update_s_fn
     private:
 	const vec &y;
 	const mat &X;
+	const mat &XX;
 	const vec &mu;
 	const double lambda;
 	const uvec &G;
@@ -738,12 +744,12 @@ class jen_update_s_fn
 };
 
 
-vec jen_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const uvec &G, const vec &P)
+vec jen_update_s(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
     opt.MaxIterations() = 50;
-    jen_update_s_fn fn(y, X, mu, lambda, G, P);
+    jen_update_s_fn fn(y, X, XX, mu, lambda, G, P);
 
     arma::vec u = log(s(G));
     opt.Optimize(fn, u);
@@ -752,14 +758,15 @@ vec jen_update_s(const vec &y, const mat &X, const vec &mu, const vec &s,
 }
 
 
-double jen_update_g(const vec &y, const mat &X, const vec &mu, const vec &s,
-	const double lambda, const double w, const uvec &G, const vec &P)
+double jen_update_g(const vec &y, const mat &X, const mat &XX, const vec &mu,
+	const vec &s, const double lambda, const double w, const uvec &G, 
+	const vec &P)
 {
     const double mk = G.size();
     const double Ck = mk * log(2.0) + 0.5*(mk-1.0)*log(M_PI) + 
 	lgamma(0.5*(mk + 1.0));
 
-    const vec PP = P % mvnMGF(X.cols(G), mu(G), s(G));
+    const vec PP = P % mvnMGF(X.cols(G), XX.cols(G), mu(G), s(G));
 
     const double res =
 	log(w / (1 - w)) + 
