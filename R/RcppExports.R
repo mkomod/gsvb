@@ -21,3 +21,11 @@ elbo_logistic <- function(y, X, groups, mu, s, g, Ss, lambda, w, mcn, diag) {
     .Call(`_gsvb_elbo_logistic`, y, X, groups, mu, s, g, Ss, lambda, w, mcn, diag)
 }
 
+fit_poisson <- function(y, X, groups, lambda, a0, b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose) {
+    .Call(`_gsvb_fit_poisson`, y, X, groups, lambda, a0, b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose)
+}
+
+elbo_poisson <- function(y, X, groups, mu, s, g, lambda, w, mcn) {
+    .Call(`_gsvb_elbo_poisson`, y, X, groups, mu, s, g, lambda, w, mcn)
+}
+

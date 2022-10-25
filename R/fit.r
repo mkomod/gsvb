@@ -9,6 +9,7 @@
 #' 	\item{\code{"logit-jensens"}}{ logistic model using Jensen's inq. to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
 #' 	\item{\code{"logit-jaakkola"}}{ logistic model using Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
 #' 	\item{\code{"logit-refined"}}{ logistic model using a tighter bound for expected log-likelihood. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
+#' 	\item{\code{"poisson"}}{ poisson regression with log link function. Currently only supports variational familiy with a diagonal covariance matrix.}
 #' }
 #' @param intercept should an intercept term be included.
 #' @param diag_covariance should a diagonal covariance matrix be used in the variational approximation. Note: if true then the *standard deviations* for each coefficient are returned. If false then covariance matrices for each group are returned.
@@ -71,7 +72,7 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     l=5) 
 {
     family <- pmatch(family, c("linear", "logit-jensens", "logit-jaakkola", 
-	    "logit-refined"))
+	    "logit-refined", "poisson"))
 
     # check user input
     if (min(groups) != 1) 
@@ -115,6 +116,10 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	    yy[which(y == 0)] <- -1
 	    glfit <- gglasso::gglasso(X, yy, groups, loss="logit", nlambda=10, 
 		intercept=FALSE)
+	} else if (5 == family) {
+	    message("Group LASSO not available for the poisson model. Using the LASSO to initialize.")
+	    glfit <- glmnet::glmnet(X, y, family="poisson", standardize=FALSE, 
+		intercept=FALSE)
 	}
 
 	# take mu as the estimate for smallest reg parameter
@@ -130,6 +135,8 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     }
     if (family == 2) # LOGISTIC - JENSEN BOUND
     {
+	message("Logistic model with Jensen's bound currently only supoorts a variational family with diagonal covariance matrix.")
+
 	diag_covariance <- TRUE
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
 	    mu, s, g, diag_covariance, track_elbo, track_elbo_every,
@@ -143,25 +150,27 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     }
     if (family == 4) # LOGISTIC - OUR BOUND
     {
-	# if (init.lasso) {
-	    # if mu is initialized by the group LASSO then
-	    # first run jaakkola until convergence
-	    # then run the new bound to refine the fit
+	message("Logistic model with new bound currently only supoorts a variational family with diagonal covariance matrix.")
 	diag_covariance <- TRUE
 
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
 	    mu, s, g, diag_covariance, FALSE, track_elbo_every,
 	    track_elbo_mcn, thresh, l, niter, 3, tol, verbose)
-	# mu <- f$mu
-	# s <- f$s
-	# g <- f$g
-	# }
 
 	# if mu is provided by the user then this input is taken
 	# and refined with our tight upper bound.
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
 	    f$mu, f$s, f$g, diag_covariance, track_elbo, track_elbo_every,
 	    track_elbo_mcn, thresh, l, niter, 1, tol, verbose)
+    }
+    if (family == 5) # POISSON REG
+    {
+	message("Poisson model currently only supoorts a variational family with diagonal covariance matrix.")
+	diag_covariance <- TRUE
+
+	f <- fit_poisson(y, X, groups, lambda, a0, b0, mu, s, g,
+	    diag_covariance, track_elbo, track_elbo_every, track_elbo_mcn, 
+	    niter, tol, verbose)
     }
     
     if (diag_covariance == FALSE && any(c(1,3) == family)) {

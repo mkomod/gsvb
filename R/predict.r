@@ -40,21 +40,21 @@ gsvb.predict <- function(fit, newdata, samples=1e4,
     {
 	sigma <- sqrt(fit$tau_b / fit$tau_a)
 	y.star <- Xb + sigma * rt(prod(dim(Xb)), 2 + fit$tau_a)
-
-	res <- list(
-	    mean=apply(y.star, 1, mean),
-	    quantiles=apply(y.star, 1, quantile, probs=quantiles)
-	)
-
     }
     else if(any(fit$parameters$family == c(2,3,4)))
     {
-	p <- 1/(1 + exp(-Xb))	
-	res <- list(
-	    mean=apply(p, 1, mean),
-	    quantiles=apply(p, 1, quantile, probs=quantiles)
-	)
+	y.star <- 1/(1 + exp(-Xb))	
     }
+    else if(fit$parameters$family == 5)
+    {
+	lambda <- exp(Xb)
+	y.star <- matrix(rpois(prod(dim(lambda)), lambda), nrow=n)
+    }
+
+    res <- list(
+	mean=apply(y.star, 1, mean),
+	quantiles=apply(y.star, 1, quantile, probs=quantiles)
+    )
 
     if (return_samples) {
 	res <- c(res, list(samples=y.star))
