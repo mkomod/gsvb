@@ -55,7 +55,7 @@ gsvb.sample <- function(fit, samples=1e4)
     }, simplify="matrix")
 
     if (fit$parameters$family == 1) {
-	tau <- 1/rgamma(samples, shape=f$tau_a, rate=f$tau_b)
+	tau <- 1/rgamma(samples, shape=fit$tau_a, rate=fit$tau_b)
 	return(list(beta=beta, tau=tau))
     }
 

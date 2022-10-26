@@ -5,10 +5,10 @@
 #' @param groups group structure.
 #' @param family which family and bound to use when fitting the model. One of:
 #' \itemize{
-#' 	\item{\code{"linear"}}{ linear model}
-#' 	\item{\code{"logit-jensens"}}{ logistic model using Jensen's inq. to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
-#' 	\item{\code{"logit-jaakkola"}}{ logistic model using Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
-#' 	\item{\code{"logit-refined"}}{ logistic model using a tighter bound for expected log-likelihood. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
+#' 	\item{\code{"gaussian"}}{ linear model with Gaussian noise}
+#' 	\item{\code{"bimomial-jensens"}}{ binomial family with logit link function where Jensen's inq. is used to upper bound the expected log-likelihood. Currently only supports a variational family with a diagonal covariance matrix.}
+#' 	\item{\code{"binomial-jaakkola"}}{ binomial family with logit link function where Jaakkola's bound for the logistic function. Currently supports variational families with both diagonal and group covariance matrices.}
+#' 	\item{\code{"binomial-refined"}}{ binomial family where a tighter bound for expected log-likelihood is used. *Note* can be slow. Currently only supports a variational family with diagonal covariance.}
 #' 	\item{\code{"poisson"}}{ poisson regression with log link function. Currently only supports variational familiy with a diagonal covariance matrix.}
 #' }
 #' @param intercept should an intercept term be included.
@@ -63,7 +63,7 @@
 #'
 #'
 #' @export
-gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE, 
+gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE, 
     diag_covariance=TRUE, lambda=1, a0=1, b0=length(unique(groups)), 
     tau_a0=1e-3, tau_b0=1e-3, mu=NULL, 
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
@@ -71,8 +71,8 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE, thresh=0.02,
     l=5) 
 {
-    family <- pmatch(family, c("linear", "logit-jensens", "logit-jaakkola", 
-	    "logit-refined", "poisson"))
+    family <- pmatch(family, c("gaussian", "binomial-jensens", "binomial-jaakkola", 
+	    "binomial-refined", "poisson"))
 
     # check user input
     if (min(groups) != 1) 
@@ -90,10 +90,17 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
     if (any(family == c(2,3,4)) && !all(y == 1 | y == 0))
 	stop("Classification requires y to be in {0, 1}")
 
+    # init s for other families
+    if (any(family == c(2,3,4,5)) && (is.null(tau_a0) || is.null(tau_b0))) {
+	tau_a0 <- tau_b0 <- 1
+	s <- apply(X, 2, function(x) 1/sqrt(sum(x^2)+2*lambda))
+    }
+
     # pre-processing
     if (intercept) {
 	groups <- c(min(groups) - 1, groups) + 1
 	X <- cbind(rep(1, nrow(X)), X)
+	n <- nrow(X)
 	
 	# update the initial parameters
 	if (length(s) == ncol(X) - 1)
@@ -102,7 +109,7 @@ gsvb.fit <- function(y, X, groups, family="linear", intercept=TRUE,
 	if (length(g) != ncol(X))
 	    g <- c(0.5, g)
     }
-    
+
     # initialize using the group LASSO
     init.lasso <- FALSE
     if (is.null(mu)) 
