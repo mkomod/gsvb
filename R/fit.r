@@ -25,6 +25,7 @@
 #' @param track_elbo_every the number of iterations between computing the ELBO.
 #' @param track_elbo_mcn number of Monte-Carlo samples to compute the ELBO.
 #' @param niter maximum number of iteration to run the algorithm for.
+#' @param niter.refined maximum number of iteration to run the "binomial-refined" algorithm for.
 #' @param tol convergence tolerance.
 #' @param verbose print additional information.
 #' @param thresh threshold used for the "logit-refined" family
@@ -68,8 +69,8 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     tau_a0=1e-3, tau_b0=1e-3, mu=NULL, 
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
-    track_elbo_mcn=5e2, niter=150, tol=1e-3, verbose=TRUE, thresh=0.02,
-    l=5) 
+    track_elbo_mcn=5e2, niter=150, niter.refined=20, 
+    tol=1e-3, verbose=TRUE, thresh=0.02, l=5) 
 {
     family <- pmatch(family, c("gaussian", "binomial-jensens", "binomial-jaakkola", 
 	    "binomial-refined", "poisson"))
@@ -168,7 +169,7 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
 	# and refined with our tight upper bound.
 	f <- fit_logistic(y, X, groups, lambda, a0, b0,
 	    f$mu, f$s, f$g, diag_covariance, track_elbo, track_elbo_every,
-	    track_elbo_mcn, thresh, l, niter, 1, tol, verbose)
+	    track_elbo_mcn, thresh, l, niter.refined, 1, tol, verbose)
     }
     if (family == 5) # POISSON REG
     {
