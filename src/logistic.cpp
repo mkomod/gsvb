@@ -228,12 +228,17 @@ double ell(const mat &Xm, const mat &Xs,  const vec &ug, double thresh, int l)
     // 
     // The function thresholds values of g to compute the expecation
     //
-    const uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
+    uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
     const uvec big = find(ug > (1.0 - thresh));
 
-    const int msize = mid.size();
     const int bsize = big.size();
+    const int msize = mid.size();
     
+    if (msize > 5) {
+	uvec io = arma::sort_index(ug(mid), "descend");
+	mid = mid(io.head(5));
+    }
+
     // compute mu and sig
     vec mu = vec(Xs.n_rows, arma::fill::zeros); 
     vec sig = vec(Xs.n_rows, arma::fill::zeros); 
@@ -344,9 +349,14 @@ vec dell_dm(const mat &X, const mat &Xm, const mat &Xs, const vec &ug,
     const int mk = G.n_rows;
     arma::vec res = arma::vec(mk, arma::fill::zeros);
 
-    const uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
+    uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
     const uvec big = find(ug > (1.0 - thresh));
     const int msize = mid.size();
+
+    if (msize > 5) {
+	uvec io = arma::sort_index(ug(mid), "descend");
+	mid = mid(io.head(5));
+    }
 
     const vec mu = sum(Xm.cols(big), 1);
     const vec sig = sum(Xs.cols(big), 1);
@@ -441,9 +451,14 @@ vec dell_ds(const mat &X, const mat &Xm, const mat &Xs, const vec &s,
     const int mk = G.n_rows;
     vec res = arma::vec(mk, arma::fill::zeros);
 
-    const uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
+    uvec mid = find(ug >= thresh && ug <= (1.0 - thresh));
     const uvec big = find(ug > (1.0 - thresh));
     const int msize = mid.size();
+
+    if (msize > 5) {
+	uvec io = arma::sort_index(ug(mid), "descend");
+	mid = mid(io.head(5));
+    }
 
     const vec mu = sum(Xm.cols(big), 1);
     const vec sig = sum(Xs.cols(big), 1);

@@ -23,6 +23,7 @@ gsvb.fit(
   track_elbo_every = 5,
   track_elbo_mcn = 500,
   niter = 150,
+  niter.refined = 20,
   tol = 0.001,
   verbose = TRUE,
   thresh = 0.02,
@@ -72,6 +73,8 @@ gsvb.fit(
 \item{track_elbo_mcn}{number of Monte-Carlo samples to compute the ELBO.}
 
 \item{niter}{maximum number of iteration to run the algorithm for.}
+
+\item{niter.refined}{maximum number of iteration to run the "binomial-refined" algorithm for.}
 
 \item{tol}{convergence tolerance.}
 
