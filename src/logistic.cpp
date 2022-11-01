@@ -1,6 +1,7 @@
 #include "logistic.h"
 #include <bitset>
 
+#define GSVB_BINOM_MAXITS 8
 
 // [[Rcpp::export]]
 Rcpp::List fit_logistic(vec y, mat X, uvec groups, const double lambda, 
@@ -236,7 +237,8 @@ double ell(const mat &Xm, const mat &Xs,  const vec &ug, double thresh, int l)
     
     if (msize > 5) {
 	uvec io = arma::sort_index(ug(mid), "descend");
-	mid = mid(io.head(5));
+	mid = mid(io);
+	mid = mid.head(5);
     }
 
     // compute mu and sig
@@ -355,7 +357,8 @@ vec dell_dm(const mat &X, const mat &Xm, const mat &Xs, const vec &ug,
 
     if (msize > 5) {
 	uvec io = arma::sort_index(ug(mid), "descend");
-	mid = mid(io.head(5));
+	mid = mid(io);
+	mid = mid.head(5);
     }
 
     const vec mu = sum(Xm.cols(big), 1);
@@ -457,7 +460,8 @@ vec dell_ds(const mat &X, const mat &Xm, const mat &Xs, const vec &s,
 
     if (msize > 5) {
 	uvec io = arma::sort_index(ug(mid), "descend");
-	mid = mid(io.head(5));
+	mid = mid(io);
+	mid = mid.head(5);
     }
 
     const vec mu = sum(Xm.cols(big), 1);
@@ -549,7 +553,7 @@ vec nb_update_m(const vec &y, const mat &X, const vec &m,
 	const uvec G, mat &Xm, const mat &Xs, const double thresh, const int l)  
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     nb_update_m_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
 
     arma::vec mG = m(G);
@@ -614,7 +618,7 @@ vec nb_update_s(const vec &y, const mat &X, const vec &m, const vec &s, vec ug,
 	const mat &Xm, mat &Xs, const double thresh, const int l)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     nb_update_s_fn fn(y, X, m, s, ug, lambda, group, G, Xm, Xs, thresh, l);
     
     vec u = log(s(G));
@@ -703,7 +707,7 @@ vec jen_update_mu(const vec &y, const mat &X, const mat &XX, const vec &mu,
 	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     jen_update_mu_fn fn(y, X, XX, mu, s, lambda, G, P);
 
     arma::vec mG = mu(G);
@@ -763,7 +767,7 @@ vec jen_update_s(const vec &y, const mat &X, const mat &XX, const vec &mu,
 	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     jen_update_s_fn fn(y, X, XX, mu, lambda, G, P);
 
     arma::vec u = log(s(G));
@@ -845,7 +849,7 @@ vec jaak_update_mu(const vec &y, const mat &X, const mat &XAX,
 	const uvec &G, const uvec &Gc)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     jaak_update_mu_fn fn(y, X, XAX, mu, s, g, lambda, G, Gc);
 
     vec mG = mu(G);
@@ -892,7 +896,7 @@ vec jaak_update_s(const mat &XAX, const vec &mu,
 	const vec &s, const double lambda, const uvec &G)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     jaak_update_s_fn fn(XAX, mu,lambda, G);
 
     vec u = log(s(G));
@@ -1024,7 +1028,7 @@ vec jaak_update_S(const mat &XAX, const vec &mu, mat &S, const vec &s,
 {
     ens::L_BFGS opt;
     jaak_update_S_fn fn(XAX, mu, lambda, G);
-    opt.MaxIterations() = 8;
+    opt.MaxIterations() = GSVB_BINOM_MAXITS;
     
     vec sG = s(G);
     opt.Optimize(fn, sG);

@@ -1,5 +1,6 @@
 #include "poisson.h"
 
+#define GSVB_POS_MAXITS 8
 
 // [[Rcpp::export]]
 Rcpp::List fit_poisson(vec y, mat X, uvec groups, const double lambda, 
@@ -126,7 +127,7 @@ vec pois_update_mu(const vec &yX, const mat &X, const mat &XX, const vec &mu,
 	const vec &s, const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_POS_MAXITS;
     pois_update_mu_fn fn(yX, X, XX, s, lambda, G, P);
 
     arma::vec mG = mu(G);
@@ -183,7 +184,7 @@ vec pois_update_s(const mat &X, const mat &XX, const vec &mu, const vec &s,
 	const double lambda, const uvec &G, const vec &P)
 {
     ens::L_BFGS opt;
-    opt.MaxIterations() = 50;
+    opt.MaxIterations() = GSVB_POS_MAXITS;
     pois_update_s_fn fn(X, XX, mu, lambda, G, P);
 
     arma::vec u = log(s(G));
