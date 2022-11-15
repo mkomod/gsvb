@@ -25,14 +25,14 @@ double nb_update_g(const vec &y, const mat &X, const vec &m, const vec &s,
 
 
 // jensens functions
-vec jen_update_mu(const vec &y, const mat &X, const mat &XX, const vec &mu,
-	const vec &s, const double lambda, const uvec &G, const vec &P);
+vec jen_update_mu(const vec &yX_G, const mat &X_G, const mat &XX_G, 
+	const vec &mu_G, const vec &s_G, const double lambda, const vec &P);
 
-vec jen_update_s(const vec &y, const mat &X, const mat &XX, const vec &mu,
-	const vec &s, const double lambda, const uvec &G, const vec &P);
+vec jen_update_s(const mat &X_G, const mat &XX_G, const vec &mu_G,
+	const vec &s_G, const double lambda, const vec &P);
 
-double jen_update_g(const vec &y, const mat &X, const mat &XX, const vec &mu,
-	const vec &s, const double lambda, const double w, const uvec &G, 
+double jen_update_g(const vec &yX_G, const mat &X_G, const mat &XX_G, const vec &mu_G,
+	const vec &s_G, const double lambda, const double w, const double mk, 
 	const vec &P);
 
 // jaakkola functions
@@ -50,6 +50,7 @@ double jaak_update_g(const vec &y, const mat &X, const mat &XAX,
 	const vec &mu, const vec &s, const vec &g, const double lambda,
 	const double w, const uvec &G, const uvec &Gc);
 
+
 // uses S not sigma^2, this is for full covaraince
 double jaak_update_g(const vec &y, const mat &X, const mat &XAX, const vec &mu,
 	const mat &S, const vec &g, const double lambda, const double w,
@@ -59,6 +60,7 @@ vec jaak_update_l(const mat &X, const vec &mu, const vec &s, const vec &g);
 
 vec jaak_update_l(const mat &X, const vec &mu, const std::vector<mat> &Ss,
 	const vec &g, const uvec &groups, const uvec &ugroups);
+
 
 // jaakola helper
 vec a(const vec &x);
