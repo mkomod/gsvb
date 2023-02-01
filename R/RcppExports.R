@@ -29,3 +29,19 @@ elbo_poisson <- function(y, X, groups, mu, s, g, lambda, w, mcn) {
     .Call(`_gsvb_elbo_poisson`, y, X, groups, mu, s, g, lambda, w, mcn)
 }
 
+pois_update_mu_S <- function(yX_G, X_G, mu_G, U, lambda, P) {
+    .Call(`_gsvb_pois_update_mu_S`, yX_G, X_G, mu_G, U, lambda, P)
+}
+
+elbo_poisson_S <- function(y, X, groups, mu, Ss, g, lambda, w, mcn) {
+    .Call(`_gsvb_elbo_poisson_S`, y, X, groups, mu, Ss, g, lambda, w, mcn)
+}
+
+mvnMGF <- function(X, mu, S) {
+    .Call(`_gsvb_mvnMGF`, X, mu, S)
+}
+
+mvnMGF_chol <- function(X, mu, U) {
+    .Call(`_gsvb_mvnMGF_chol`, X, mu, U)
+}
+

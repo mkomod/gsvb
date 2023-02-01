@@ -173,15 +173,12 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     }
     if (family == 5) # POISSON REG
     {
-	message("Poisson model currently only supoorts a variational family with diagonal covariance matrix.")
-	diag_covariance <- TRUE
-
 	f <- fit_poisson(y, X, groups, lambda, a0, b0, mu, s, g,
 	    diag_covariance, track_elbo, track_elbo_every, track_elbo_mcn, 
 	    niter, tol, verbose)
     }
     
-    if (diag_covariance == FALSE && any(c(1,3) == family)) {
+    if (diag_covariance == FALSE && any(c(1,3,5) == family)) {
 	f$s <- lapply(f$S, function(s) matrix(s, nrow=sqrt(length(s))))
     }
    

@@ -72,9 +72,14 @@ gsvb.elbo <- function(fit, y, X, mcn=5e2, approx=FALSE, approx_thresh=1e-3)
     }
     else if (fit$parameters$family == 5) {
 	w <- fit$parameters$a0 / (fit$parameters$a0 + fit$parameters$b0)
-
-	res <- elbo_poisson(y, X, groups, fit$mu, fit$s, fit$g[groups],	
-	    fit$parameters$lambda, w, mcn);
+	
+	if (fit$parameters$diag_covariance) {
+	    res <- elbo_poisson(y, X, groups, fit$mu, fit$s, fit$g[groups],	
+		fit$parameters$lambda, w, mcn);
+	} else {
+	    res <- elbo_poisson_S(y, X, groups, fit$mu, fit$s, fit$g[groups],	
+		fit$parameters$lambda, w, mcn);
+	}
     }
 
 
