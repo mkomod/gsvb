@@ -33,6 +33,14 @@ pois_update_mu_S <- function(yX_G, X_G, mu_G, U, lambda, P) {
     .Call(`_gsvb_pois_update_mu_S`, yX_G, X_G, mu_G, U, lambda, P)
 }
 
+pois_update_U <- function(X_G, mu_G, U, lambda, P) {
+    .Call(`_gsvb_pois_update_U`, X_G, mu_G, U, lambda, P)
+}
+
+pois_update_g_S <- function(yX_G, X_G, mu_G, U, S, lambda, w, P) {
+    .Call(`_gsvb_pois_update_g_S`, yX_G, X_G, mu_G, U, S, lambda, w, P)
+}
+
 elbo_poisson_S <- function(y, X, groups, mu, Ss, g, lambda, w, mcn) {
     .Call(`_gsvb_elbo_poisson_S`, y, X, groups, mu, Ss, g, lambda, w, mcn)
 }
