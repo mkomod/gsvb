@@ -194,6 +194,67 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// pois_update_mu_S
+vec pois_update_mu_S(const vec& yX_G, const mat& X_G, const vec& mu_G, const mat& U, const double lambda, const vec& P);
+RcppExport SEXP _gsvb_pois_update_mu_S(SEXP yX_GSEXP, SEXP X_GSEXP, SEXP mu_GSEXP, SEXP USEXP, SEXP lambdaSEXP, SEXP PSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const vec& >::type yX_G(yX_GSEXP);
+    Rcpp::traits::input_parameter< const mat& >::type X_G(X_GSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu_G(mu_GSEXP);
+    Rcpp::traits::input_parameter< const mat& >::type U(USEXP);
+    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type P(PSEXP);
+    rcpp_result_gen = Rcpp::wrap(pois_update_mu_S(yX_G, X_G, mu_G, U, lambda, P));
+    return rcpp_result_gen;
+END_RCPP
+}
+// elbo_poisson_S
+double elbo_poisson_S(const vec& y, const mat& X, const uvec& groups, const vec& mu, const std::vector<mat>& Ss, const vec& g, const double lambda, const double w, const uword mcn);
+RcppExport SEXP _gsvb_elbo_poisson_S(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP muSEXP, SEXP SsSEXP, SEXP gSEXP, SEXP lambdaSEXP, SEXP wSEXP, SEXP mcnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const vec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< const mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const uvec& >::type groups(groupsSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const std::vector<mat>& >::type Ss(SsSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type g(gSEXP);
+    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< const double >::type w(wSEXP);
+    Rcpp::traits::input_parameter< const uword >::type mcn(mcnSEXP);
+    rcpp_result_gen = Rcpp::wrap(elbo_poisson_S(y, X, groups, mu, Ss, g, lambda, w, mcn));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mvnMGF
+vec mvnMGF(const mat& X, const vec& mu, const mat& S);
+RcppExport SEXP _gsvb_mvnMGF(SEXP XSEXP, SEXP muSEXP, SEXP SSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const mat& >::type S(SSEXP);
+    rcpp_result_gen = Rcpp::wrap(mvnMGF(X, mu, S));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mvnMGF_chol
+vec mvnMGF_chol(const mat& X, const vec& mu, const mat& U);
+RcppExport SEXP _gsvb_mvnMGF_chol(SEXP XSEXP, SEXP muSEXP, SEXP USEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const mat& >::type U(USEXP);
+    rcpp_result_gen = Rcpp::wrap(mvnMGF_chol(X, mu, U));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_gsvb_fit_linear", (DL_FUNC) &_gsvb_fit_linear, 18},
@@ -203,6 +264,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_gsvb_elbo_logistic", (DL_FUNC) &_gsvb_elbo_logistic, 11},
     {"_gsvb_fit_poisson", (DL_FUNC) &_gsvb_fit_poisson, 16},
     {"_gsvb_elbo_poisson", (DL_FUNC) &_gsvb_elbo_poisson, 9},
+    {"_gsvb_pois_update_mu_S", (DL_FUNC) &_gsvb_pois_update_mu_S, 6},
+    {"_gsvb_elbo_poisson_S", (DL_FUNC) &_gsvb_elbo_poisson_S, 9},
+    {"_gsvb_mvnMGF", (DL_FUNC) &_gsvb_mvnMGF, 3},
+    {"_gsvb_mvnMGF_chol", (DL_FUNC) &_gsvb_mvnMGF_chol, 3},
     {NULL, NULL, 0}
 };
 
