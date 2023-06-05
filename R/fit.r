@@ -197,7 +197,7 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     if (family == 1) {
 	res$tau_a = f$tau_a
 	res$tau_b = f$tau_b
-	res$tau_hat = f$tau_a / (f$tau_b - 1)
+	res$tau_hat = f$tau_b / (f$tau_a - 1)
 	res$parameters$tau_a0=tau_a0
 	res$parameters$tau_b0=tau_b0
     }
