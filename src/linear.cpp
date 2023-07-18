@@ -283,7 +283,8 @@ class update_S_fn
 
 	    // gradient wrt. v
 	    double tv = 0.5 * lambda * pow(sum(ds) + dot(mu(G), mu(G)), -0.5);
-	    grad = 0.5 * (v(0, 0) - 2.0 * tv) * accu(S % S);
+	    // grad = 0.5 * (v(0, 0) - 2.0 * tv) * accu(S % S);
+	    grad = (0.5 * v(0, 0) - tv) * accu(S % S);
 
 	    return res;
 	}

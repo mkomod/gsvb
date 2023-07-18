@@ -49,8 +49,10 @@ gsvb.sample <- function(fit, samples=1e4)
 	    })
 	    m <- matrix(as.numeric(unlist(m)), ncol=1)
 	}
-
-	b[grp] <- m
+	
+	if (any(grp)) {
+	    b[grp] <- m
+	}
 	return(b)
     }, simplify="matrix")
 
