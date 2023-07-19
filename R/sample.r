@@ -50,7 +50,7 @@ gsvb.sample <- function(fit, samples=1e4)
 	    m <- matrix(as.numeric(unlist(m)), ncol=1)
 	}
 	
-	if (any(grp)) {
+	if (length(grp) != 0) {
 	    b[grp] <- m
 	}
 	return(b)
