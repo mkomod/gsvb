@@ -37,11 +37,11 @@ points(b, pch=20)
 GSVB computes a variational approximation the full group sparse posterior. The prior used for the model coefficients is
 
 ```math
-\begin{algined}
+\begin{aligned}
 \beta_j \sim z_j \Psi(\beta_j, \lambda) + (1-z_j) \delta_0 
 z_j \sim \text{Bern}(\theta_j)
 \theta_j  \sim \text{Beta}(a_0, b_0)
-\end{algined}
+\end{aligned}
 ```
 
 where $Psi(\beta, \lambda)$ is the multivariate double exponential distribution and $\delta_0$ is the multivariate Dirac mass. 
