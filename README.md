@@ -46,7 +46,7 @@ z_j | \theta_j &\ \sim \text{Bern}(\theta_j) \\
 \end{aligned}
 ```
 
-where $Psi(\beta, \lambda)$ is the multivariate double exponential distribution and $\delta_0$ is the multivariate Dirac mass. 
+where $\Psi(\beta, \lambda)$ is the multivariate double exponential distribution and $\delta_0$ is the multivariate Dirac mass. 
 
 Under this prior sparsity is imposed via the Dirac mass which sets the entire group to zero when $z_j = 0$ and enables the group to be non-zero when $z_j = 1$. Exploring the entire model space is not feasible for a large number of groups. Therefore, we approximate the posterior through a variational approximation.
 
