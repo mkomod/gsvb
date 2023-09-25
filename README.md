@@ -37,10 +37,10 @@ points(b, pch=20)
 GSVB computes a variational approximation the full group sparse posterior. The prior used for the model coefficients is
 
 ```math
-\beta_j \sim \sim z_j \Psi(\beta_j, \lambda) + (1-z_j) \delta_0 
+\beta_j \sim z_j \Psi(\beta_j, \lambda) + (1-z_j) \delta_0 
 ```
 ```math
-z_j \sim \text{Bern)(\theta_j)
+z_j \sim \text{Bern}(\theta_j)
 ```
 ```math
 \theta_j  \sim \text{Beta}(a_0, b_0)
