@@ -38,9 +38,9 @@ GSVB computes a variational approximation the full group sparse posterior. The p
 
 ```math
 \begin{aligned}
-\beta_j \sim z_j \Psi(\beta_j, \lambda) + (1-z_j) \delta_0 
-z_j \sim \text{Bern}(\theta_j)
-\theta_j  \sim \text{Beta}(a_0, b_0)
+\beta_j | z_j &\ \sim z_j \Psi(\beta_j, \lambda) + (1-z_j) \delta_0  \\
+z_j | \theta_j &\ \sim \text{Bern}(\theta_j) \\
+\theta_j  &\ \sim \text{Beta}(a_0, b_0) \\
 \end{aligned}
 ```
 
