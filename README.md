@@ -1,9 +1,10 @@
 # Group sparse Variational Bayes
 
-GSVB is software for scalable group sparse regression. Unlike other state-of-the-art group selection methods, GSVB provides uncertainty quantification at scale. Offering an alternative as fast as maximum a posteriori methods, and orders of magnitude faster than MCMC.
+GSVB is software for scalable group sparse regression. 
 
-Currently GSVB is available for the linear, logistic and Poisson models. 
+Unlike other state-of-the-art group selection methods, GSVB provides scalable uncertainty quantification (~100x times faster than MCMC)
 
+Currently GSVB is available for the Linear, Logistic and Poisson models. 
 
 
 ## Install
