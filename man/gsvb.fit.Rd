@@ -27,7 +27,8 @@ gsvb.fit(
   tol = 0.001,
   verbose = TRUE,
   thresh = 0.02,
-  l = 5
+  l = 5,
+  ordering = 0
 )
 }
 \arguments{

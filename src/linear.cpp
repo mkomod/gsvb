@@ -5,7 +5,8 @@
 Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const double a0,
     const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, 
     vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, 
-    const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose)
+    const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose, 
+	const uword ordering)
 {
     const uword n = X.n_rows;
     const uword p = X.n_cols;
@@ -18,14 +19,15 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
     
     // init
     const uvec ugroups = arma::unique(groups);
+	uvec g_order = ugroups;
 
     // if not constrained we are using a full covariance for S
     std::vector<mat> Ss;
     if (!diag_cov) {
-	for (uword group : ugroups) {
-	    uvec G = find(groups == group);	
-	    Ss.push_back(arma::diagmat(s(G)));
-	}
+		for (uword group : ugroups) {
+			uvec G = find(groups == group);	
+			Ss.push_back(arma::diagmat(s(G)));
+		}
     }
     vec v = vec(ugroups.size(), arma::fill::ones);
 
@@ -38,100 +40,122 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 
     for (unsigned int iter = 1; iter <= niter; ++iter)
     {
-	mu_old = mu; g_old = g;
-	if (diag_cov) {
-	    s_old = s; 
-	} else {
-	    v_old = v;
-	}
+		mu_old = mu; g_old = g;
+		if (diag_cov) {
+			s_old = s; 
+		} else {
+			v_old = v;
+		}
 
-	// update expected value of tau^2
-	e_tau = tau_a / tau_b;
+		// order the groups based
+		if (ordering == 0) {
+			uvec g_order = ugroups;
+		} 
+		else if (ordering == 1) 
+		{
+			// random ordering
+			uvec g_order = arma::shuffle(ugroups);
+		} 
+		else if (ordering == 2) 
+		{
+			// sort by magnitude of mu
+			vec beta_mag = vec(ugroups.size(), arma::fill::zeros);
+			for (uword i = 0; i < ugroups.size(); ++i) 
+			{
+				uvec G = find(groups == ugroups(i));
+				beta_mag(i) = arma::norm(mu(G), 2);
+			}
+			uvec g_order = ugroups(sort_index(beta_mag, "descend"));
+		}	
 
-	// update mu, sigma, gamma
-	for (uword group : ugroups)
-	{
-	    uvec G  = arma::find(groups == group);
-	    uvec Gc = arma::find(groups != group);
-	    
-	    if (diag_cov)
-	    {
-		mu(G) = update_mu(G, Gc, xtx, yx, mu, s(G), g, e_tau, lambda);
-		s(G)  = update_s(G, xtx, mu, s, e_tau, lambda);
-		double tg = update_g(G, Gc, xtx, yx, mu, s, g, e_tau, lambda, w);
-		for (uword j : G) g(j) = tg;
-	    } 
-	    else 
-	    {
-		// get the index of the group
-		uword gi = arma::find(ugroups == group).eval().at(0);
-		mat &S = Ss.at(gi);
 
-		mu(G) = update_mu(G, Gc, xtx, yx, mu, sqrt(diagvec(S)), g, e_tau, lambda);
-		v(gi)  = update_S(G, xtx, mu, S, v(gi), e_tau, lambda);
-		double tg = update_g(G, Gc, xtx, yx, mu, S, g, e_tau, lambda, w);
-		for (uword j : G) g(j) = tg;
-	    }
-	}
-	
-	// update tau_a, tau_b
-	double R = diag_cov ?
-	    compute_R(yty, yx, xtx, groups, mu, s, g, p, false) :
-	    compute_R(yty, yx, xtx, groups, mu, Ss, g, p, false);
+		// update expected value of tau^2
+		e_tau = tau_a / tau_b;
 
-	update_a_b(tau_a, tau_b, tau_a0, tau_b0, R, n);
+		// update mu, sigma, gamma
+		for (uword group : g_order)
+		{
+			uvec G  = arma::find(groups == group);
+			uvec Gc = arma::find(groups != group);
+			
+			if (diag_cov)
+			{
+				mu(G) = update_mu(G, Gc, xtx, yx, mu, s(G), g, e_tau, lambda);
+				s(G)  = update_s(G, xtx, mu, s, e_tau, lambda);
+				double tg = update_g(G, Gc, xtx, yx, mu, s, g, e_tau, lambda, w);
+				for (uword j : G) g(j) = tg;
+			} 
+			else 
+			{
+				// get the index of the group
+				uword gi = arma::find(ugroups == group).eval().at(0);
+				mat &S = Ss.at(gi);
 
-	// check for break, print iter
-	Rcpp::checkUserInterrupt();
-	if (verbose) Rcpp::Rcout << iter;
-	
-	// compute the ELBO if option enabled
-	if (track_elbo && (iter % track_elbo_every == 0)) {
-	    double e = diag_cov ?
-		elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
-		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
-		elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
-		    lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
+				mu(G) = update_mu(G, Gc, xtx, yx, mu, sqrt(diagvec(S)), g, e_tau, lambda);
+				v(gi)  = update_S(G, xtx, mu, S, v(gi), e_tau, lambda);
+				double tg = update_g(G, Gc, xtx, yx, mu, S, g, e_tau, lambda, w);
+				for (uword j : G) g(j) = tg;
+			}
+		}
+		
+		// update tau_a, tau_b
+		double R = diag_cov ?
+			compute_R(yty, yx, xtx, groups, mu, s, g, p, false) :
+			compute_R(yty, yx, xtx, groups, mu, Ss, g, p, false);
 
-	    elbo_values.push_back(e);
-	}
+		update_a_b(tau_a, tau_b, tau_a0, tau_b0, R, n);
 
-	// check convergence
-	bool var_conv = diag_cov ? sum(abs(s_old - s)) < tol : sum(abs(v_old - v)) < tol; 
+		// check for break, print iter
+		Rcpp::checkUserInterrupt();
+		if (verbose) Rcpp::Rcout << iter;
+		
+		// compute the ELBO if option enabled
+		if (track_elbo && (iter % track_elbo_every == 0)) {
+			double e = diag_cov ?
+			elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+				lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
+			elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
+				lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
 
-	if (sum(abs(mu_old - mu)) < tol &&
-	    var_conv &&
-	    sum(abs(g_old - g)) < tol) 
-	{
-	    if (verbose)
-		Rcpp::Rcout << "\nConverged in " << iter << " iterations\n";
+			elbo_values.push_back(e);
+		}
 
-	    num_iter = iter;
-	    converged = true;
-	    break;
-	}
+		// check convergence
+		bool var_conv = diag_cov ? sum(abs(s_old - s)) < tol : sum(abs(v_old - v)) < tol; 
+
+		if (sum(abs(mu_old - mu)) < tol &&
+			var_conv &&
+			sum(abs(g_old - g)) < tol) 
+		{
+			if (verbose)
+			Rcpp::Rcout << "\nConverged in " << iter << " iterations\n";
+
+			num_iter = iter;
+			converged = true;
+			break;
+		}
     }
     
     // compute elbo for final eval
     if (track_elbo) {
-	double e = diag_cov ?
-	    elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
-		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
-	    elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
-		lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
-	elbo_values.push_back(e);
+		double e = diag_cov ?
+			elbo_linear_c(yty, yx, xtx, groups, n, p, mu, s, g, tau_a, tau_b,
+			lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false) :
+			elbo_linear_u(yty, yx, xtx, groups, n, p, mu, Ss, g, tau_a, tau_b,
+			lambda, a0, b0, tau_a0, tau_b0, track_elbo_mcn, false);
+		elbo_values.push_back(e);
     }
     
     return Rcpp::List::create(
-	Rcpp::Named("mu") = mu,
-	Rcpp::Named("sigma") = s,
-	Rcpp::Named("S") = Ss,
-	Rcpp::Named("gamma") = g,
-	Rcpp::Named("tau_a") = tau_a,
-	Rcpp::Named("tau_b") = tau_b,
-	Rcpp::Named("converged") = converged,
-	Rcpp::Named("iterations") = num_iter,
-	Rcpp::Named("elbo") = elbo_values
+		Rcpp::Named("mu") = mu,
+		Rcpp::Named("sigma") = s,
+		Rcpp::Named("S") = Ss,
+		Rcpp::Named("gamma") = g,
+		Rcpp::Named("tau_a") = tau_a,
+		Rcpp::Named("tau_b") = tau_b,
+		Rcpp::Named("converged") = converged,
+		Rcpp::Named("iterations") = num_iter,
+		Rcpp::Named("elbo") = elbo_values
     );
 }
 

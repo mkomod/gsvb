@@ -9,4 +9,4 @@ Description:
 License:
 Imports: Rcpp, gglasso, glmnet
 LinkingTo: Rcpp, RcppArmadillo, RcppEnsmallen
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2

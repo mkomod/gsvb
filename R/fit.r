@@ -70,7 +70,7 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
     track_elbo_mcn=5e2, niter=150, niter.refined=20, 
-    tol=1e-3, verbose=TRUE, thresh=0.02, l=5) 
+    tol=1e-3, verbose=TRUE, thresh=0.02, l=5, ordering=0) 
 {
     family <- pmatch(family, c("gaussian", "binomial-jensens", "binomial-jaakkola", 
 	    "binomial-refined", "poisson"))
@@ -139,7 +139,7 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     {
 	f <- fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, 
 	    mu, s, g, diag_covariance, track_elbo, track_elbo_every, 
-	    track_elbo_mcn, niter, tol, verbose)
+	    track_elbo_mcn, niter, tol, verbose, ordering)
     }
     if (family == 2) # LOGISTIC - JENSEN BOUND
     {

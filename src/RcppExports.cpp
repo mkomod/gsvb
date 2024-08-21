@@ -14,8 +14,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // fit_linear
-Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose);
-RcppExport SEXP _gsvb_fit_linear(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP) {
+Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const double a0, const double b0, const double tau_a0, const double tau_b0, vec mu, vec s, vec g, bool diag_cov, bool track_elbo, const uword track_elbo_every, const uword track_elbo_mcn, unsigned int niter, double tol, bool verbose, const uword ordering);
+RcppExport SEXP _gsvb_fit_linear(SEXP ySEXP, SEXP XSEXP, SEXP groupsSEXP, SEXP lambdaSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP tau_a0SEXP, SEXP tau_b0SEXP, SEXP muSEXP, SEXP sSEXP, SEXP gSEXP, SEXP diag_covSEXP, SEXP track_elboSEXP, SEXP track_elbo_everySEXP, SEXP track_elbo_mcnSEXP, SEXP niterSEXP, SEXP tolSEXP, SEXP verboseSEXP, SEXP orderingSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -37,7 +37,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< unsigned int >::type niter(niterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose));
+    Rcpp::traits::input_parameter< const uword >::type ordering(orderingSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_linear(y, X, groups, lambda, a0, b0, tau_a0, tau_b0, mu, s, g, diag_cov, track_elbo, track_elbo_every, track_elbo_mcn, niter, tol, verbose, ordering));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -290,7 +291,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_gsvb_fit_linear", (DL_FUNC) &_gsvb_fit_linear, 18},
+    {"_gsvb_fit_linear", (DL_FUNC) &_gsvb_fit_linear, 19},
     {"_gsvb_elbo_linear_c", (DL_FUNC) &_gsvb_elbo_linear_c, 19},
     {"_gsvb_elbo_linear_u", (DL_FUNC) &_gsvb_elbo_linear_u, 19},
     {"_gsvb_fit_logistic", (DL_FUNC) &_gsvb_fit_logistic, 19},
