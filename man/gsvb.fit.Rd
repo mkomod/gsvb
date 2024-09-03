@@ -28,7 +28,8 @@ gsvb.fit(
   verbose = TRUE,
   thresh = 0.02,
   l = 5,
-  ordering = 0
+  ordering = 0,
+  init_method = "lasso"
 )
 }
 \arguments{
@@ -84,6 +85,14 @@ gsvb.fit(
 \item{thresh}{threshold used for the "logit-refined" family}
 
 \item{l}{number of parameters used for the "logit-refined" family, samller is faster but more approximate.}
+
+\item{ordering}{ordering of group updates. 0 is no ordering, 1 is random ordering, 2 is ordering by the norm of the group}
+
+\item{init_method}{method to initialize the algorithm. One of:
+\itemize{
+    \item{\code{"lasso"}}{initialize using the group LASSO.}
+    \item{\code{"random"}}{initialize using random values.}
+}}
 }
 \value{
 The program output is a list containing:
