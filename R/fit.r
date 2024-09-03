@@ -30,6 +30,13 @@
 #' @param verbose print additional information.
 #' @param thresh threshold used for the "logit-refined" family
 #' @param l number of parameters used for the "logit-refined" family, samller is faster but more approximate.
+#' @param ordering ordering of group updates. 0 is no ordering, 1 is random ordering, 2 is ordering by the norm of the group
+#' @param init_method method to initialize the algorithm. One of:
+#' \itemize{
+#' 	\item{\code{"lasso"}}{initialize using the group LASSO.}
+#' 	\item{\code{"random"}}{initialize using random values.}
+#' }
+#' 
 #' 
 #' @return The program output is a list containing:
 #' \item{mu}{the means for the variational posterior.}
@@ -70,10 +77,13 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     s=apply(X, 2, function(x) 1/sqrt(sum(x^2)*tau_a0/tau_b0+2*lambda)),
     g=rep(0.5, ncol(X)), track_elbo=TRUE, track_elbo_every=5, 
     track_elbo_mcn=5e2, niter=150, niter.refined=20, 
-    tol=1e-3, verbose=TRUE, thresh=0.02, l=5, ordering=0) 
+    tol=1e-3, verbose=TRUE, thresh=0.02, l=5, ordering=0, init_method="lasso") 
 {
     family <- pmatch(family, c("gaussian", "binomial-jensens", "binomial-jaakkola", 
 	    "binomial-refined", "poisson"))
+
+	if (is.null(init_method)) init_method <- "lasso"
+	init_method <- pmatch(init_method, c("lasso", "random"))
 
     # check user input
     if (min(groups) != 1) 
@@ -112,28 +122,33 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
     }
 
     # initialize using the group LASSO
-    init.lasso <- FALSE
-    if (is.null(mu)) 
-    {
-	# Note: the intercept is handled by adding a column of 1s to the
-	# design matrix X and is therefore disabled for gglasso
-	if (family == 1) {
-	    glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
-	} else if (any(c(2,3,4) == family)) {
-	    yy <- y
-	    yy[which(y == 0)] <- -1
-	    glfit <- gglasso::gglasso(X, yy, groups, loss="logit", nlambda=10, 
-		intercept=FALSE)
-	} else if (5 == family) {
-	    message("Group LASSO not available for the poisson model. Using the LASSO to initialize.")
-	    glfit <- glmnet::glmnet(X, y, family="poisson", standardize=FALSE, 
-		intercept=FALSE)
-	}
+	if (is.null(mu))
+	{
+		if (init_method == 1)
+		{
+		# Note: the intercept is handled by adding a column of 1s to the
+		# design matrix X and is therefore disabled for gglasso
+		if (family == 1) {
+			glfit <- gglasso::gglasso(X, y, groups, nlambda=10, intercept=FALSE)
+		} else if (any(c(2,3,4) == family)) {
+			yy <- y
+			yy[which(y == 0)] <- -1
+			glfit <- gglasso::gglasso(X, yy, groups, loss="logit", nlambda=10, 
+			intercept=FALSE)
+		} else if (5 == family) {
+			message("Group LASSO not available for the poisson model. Using the LASSO to initialize.")
+			glfit <- glmnet::glmnet(X, y, family="poisson", standardize=FALSE, 
+			intercept=FALSE)
+		}
 
-	# take mu as the estimate for smallest reg parameter
-	mu <- glfit$beta[ , length(glfit$lambda)]
-	init.lasso <- TRUE
-    }
+		# take mu as the estimate for smallest reg parameter
+		mu <- glfit$beta[ , length(glfit$lambda)]
+		}
+		else if (init_method == 2)
+		{
+			mu <- rnorm(ncol(X), 0, 0.5)
+		}
+	}
 
     if (family == 1) # LINEAR
     {
