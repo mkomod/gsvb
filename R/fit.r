@@ -35,6 +35,7 @@
 #' \itemize{
 #' 	\item{\code{"lasso"}}{initialize using the group LASSO.}
 #' 	\item{\code{"random"}}{initialize using random values.}
+#' 	\item{\code{"ridge"}}{initialize using the ridge penalty.}
 #' }
 #' 
 #' 
@@ -83,7 +84,7 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
 	    "binomial-refined", "poisson"))
 
 	if (is.null(init_method)) init_method <- "lasso"
-	init_method <- pmatch(init_method, c("lasso", "random"))
+	init_method <- pmatch(init_method, c("lasso", "random", "ridge"))
 
     # check user input
     if (min(groups) != 1) 
@@ -140,13 +141,29 @@ gsvb.fit <- function(y, X, groups, family="gaussian", intercept=TRUE,
 			glfit <- glmnet::glmnet(X, y, family="poisson", standardize=FALSE, 
 			intercept=FALSE)
 		}
-
 		# take mu as the estimate for smallest reg parameter
 		mu <- glfit$beta[ , length(glfit$lambda)]
 		}
 		else if (init_method == 2)
 		{
 			mu <- rnorm(ncol(X), 0, 0.5)
+		}
+		else if (init_method == 3) {
+		if (family == 1) {
+			glfit <- glmnet::glmnet(X, y, family="gaussian", standardize=FALSE, 
+			intercept=FALSE, alpha=0)
+		} else if (any(c(2,3,4) == family)) {
+			yy <- y
+			yy[which(y == 0)] <- -1
+			glfit <- glmnet::glmnet(X, y, family="binomial", standardize=FALSE, 
+			intercept=FALSE, alpha=0)
+		} else if (5 == family) {
+			message("Group LASSO not available for the poisson model. Using the LASSO to initialize.")
+			glfit <- glmnet::glmnet(X, y, family="poisson", standardize=FALSE, 
+			intercept=FALSE, alpha=0)
+		}
+		# take mu as the estimate for smallest reg parameter
+		mu <- glfit$beta[ , length(glfit$lambda)]
 		}
 	}
 
