@@ -48,16 +48,15 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 		}
 
 		// order the groups based
-		if (ordering == 0) {
-			uvec g_order = ugroups;
-		} 
-		else if (ordering == 1) 
+		if (ordering == 1) 
 		{
+			// Rcpp::Rcout << "Order by rand\n";
 			// random ordering
-			uvec g_order = arma::shuffle(ugroups);
+			g_order = arma::shuffle(ugroups);
 		} 
 		else if (ordering == 2) 
 		{
+			// Rcpp::Rcout << "Order by mag\n";
 			// sort by magnitude of mu
 			vec beta_mag = vec(ugroups.size(), arma::fill::zeros);
 			for (uword i = 0; i < ugroups.size(); ++i) 
@@ -65,7 +64,7 @@ Rcpp::List fit_linear(vec y, mat X, uvec groups, const double lambda, const doub
 				uvec G = find(groups == ugroups(i));
 				beta_mag(i) = arma::norm(mu(G), 2);
 			}
-			uvec g_order = ugroups(sort_index(beta_mag, "descend"));
+			g_order = ugroups(sort_index(beta_mag, "descend"));
 		}	
 
 

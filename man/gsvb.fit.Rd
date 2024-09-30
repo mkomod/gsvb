@@ -92,6 +92,7 @@ gsvb.fit(
 \itemize{
     \item{\code{"lasso"}}{initialize using the group LASSO.}
     \item{\code{"random"}}{initialize using random values.}
+    \item{\code{"ridge"}}{initialize using the ridge penalty.}
 }}
 }
 \value{
