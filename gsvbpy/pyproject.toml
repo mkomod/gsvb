@@ -1,0 +1,32 @@
+[build-system]
+requires = ["scikit-build-core>=0.9", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "gsvbpy"
+version = "0.1.0"
+description = "Group-sparse variational Bayes (Python port of the GSVB R package)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Michael Komodromos" }]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/mkomod/gsvbpy"
+Reference = "https://arxiv.org/abs/2309.10378"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[tool.scikit-build]
+cmake.version = ">=3.18"
+wheel.packages = ["src/gsvbpy"]
+build-dir = "build/{wheel_tag}"
+
+[tool.scikit-build.cmake.define]
+CMAKE_BUILD_TYPE = "Release"
