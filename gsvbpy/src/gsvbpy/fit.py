@@ -18,8 +18,11 @@ _FAMILIES = {
     "poisson": 5,
 }
 
-# families wired up in this (core-first) port
-_SUPPORTED = {"gaussian", "binomial-jaakkola", "poisson"}
+# all families are now exposed
+_SUPPORTED = {
+    "gaussian", "binomial-jensens", "binomial-jaakkola",
+    "binomial-refined", "poisson",
+}
 
 _INIT_METHODS = {"ridge": 3, "random": 2, "lasso": 1}
 
@@ -62,16 +65,17 @@ def gsvb_fit(
     y, X, groups, family="gaussian", intercept=True, diag_covariance=True,
     lambda_=1.0, a0=1.0, b0=None, tau_a0=1e-3, tau_b0=1e-3,
     mu=None, s=None, g=None, track_elbo=True, track_elbo_every=5,
-    track_elbo_mcn=500, niter=150, tol=1e-3, verbose=False,
+    track_elbo_mcn=500, niter=150, niter_refined=20, tol=1e-3, verbose=False,
     thresh=0.02, l=5, ordering=2, init_method="ridge", seed=None,
 ):
     """Fit a group-sparse variational Bayes regression model.
 
     Parameters mirror the R ``gsvb.fit``. ``family`` is one of ``"gaussian"``,
-    ``"binomial-jaakkola"`` or ``"poisson"`` (core-first port; the remaining
-    binomial bounds are compiled but not yet exposed). Returns a dict with keys
-    ``mu, s, g, beta_hat, parameters, converged, iter`` (plus ``tau_a/tau_b/
-    tau_hat/elbo`` where applicable).
+    ``"binomial-jensens"``, ``"binomial-jaakkola"``, ``"binomial-refined"`` or
+    ``"poisson"``. The binomial Jensen and refined bounds support only a
+    diagonal covariance (``diag_covariance`` is forced to ``True`` for them).
+    Returns a dict with keys ``mu, s, g, beta_hat, parameters, converged, iter``
+    (plus ``tau_a/tau_b/tau_hat/elbo`` where applicable).
     """
     if family not in _FAMILIES:
         raise ValueError(f"Invalid family: {family!r}")
@@ -146,6 +150,16 @@ def gsvb_fit(
 
     groups_u = np.ascontiguousarray(groups.astype(np.uint64))
 
+    # the Jensen and refined bounds only support a diagonal covariance
+    if fam in (2, 4) and not diag_covariance:
+        import warnings
+        warnings.warn(
+            f"family {family!r} only supports a diagonal covariance; "
+            "setting diag_covariance=True",
+            stacklevel=2,
+        )
+        diag_covariance = True
+
     # ---- dispatch ----
     if fam == 1:  # linear
         f = _core.fit_linear(
@@ -153,11 +167,27 @@ def gsvb_fit(
             diag_covariance, track_elbo, int(track_elbo_every),
             int(track_elbo_mcn), int(niter), tol, verbose, int(ordering),
         )
-    elif fam == 3:  # logistic, Jaakkola bound (alg=3)
+    elif fam in (2, 3):  # logistic, Jensen (alg=2) or Jaakkola (alg=3) bound
+        alg = 2 if fam == 2 else 3
         f = _core.fit_logistic(
             y, X, groups_u, lambda_, a0, b0, mu, s, g, diag_covariance,
             track_elbo, int(track_elbo_every), int(track_elbo_mcn), thresh,
+            int(l), int(niter), alg, tol, verbose, int(ordering),
+        )
+    elif fam == 4:  # logistic, refined bound: Jaakkola warm-up then refine
+        warm = _core.fit_logistic(
+            y, X, groups_u, lambda_, a0, b0, mu, s, g, diag_covariance,
+            False, int(track_elbo_every), int(track_elbo_mcn), thresh,
             int(l), int(niter), 3, tol, verbose, int(ordering),
+        )
+        f = _core.fit_logistic(
+            y, X, groups_u, lambda_, a0, b0,
+            np.asarray(warm["mu"], dtype=float),
+            np.asarray(warm["sigma"], dtype=float),
+            np.asarray(warm["gamma"], dtype=float),
+            diag_covariance, track_elbo, int(track_elbo_every),
+            int(track_elbo_mcn), thresh, int(l), int(niter_refined), 1, tol,
+            verbose, int(ordering),
         )
     else:  # poisson
         f = _core.fit_poisson(

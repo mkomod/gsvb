@@ -95,10 +95,66 @@ def test_poisson_runs():
     assert np.isfinite(f["beta_hat"]).all()
 
 
-def test_unsupported_family_raises():
+@pytest.mark.parametrize("family", ["binomial-jensens", "binomial-jaakkola",
+                                    "binomial-refined"])
+def test_binomial_bounds_identify_active_group(family):
+    rng = np.random.default_rng(10)
+    n, p, gsize = 120, 30, 5
+    groups = _make_groups(p, gsize)
+    X = rng.standard_normal((n, p))
+    b = np.zeros(p)
+    b[5:10] = 3.0
+    prob = 1.0 / (1.0 + np.exp(-(X @ b)))
+    y = (rng.random(n) < prob).astype(float)
+
+    gsvbpy.set_seed(11)
+    f = gsvbpy.gsvb_fit(y, X, groups, family=family, verbose=False, niter=60)
+    assert f["beta_hat"].shape[0] == p + 1
+    assert np.isfinite(f["beta_hat"]).all()
+    assert f["g"][2] > 0.5            # group 2 -> active coefficients 5:10
+
+
+@pytest.mark.parametrize("family", ["gaussian", "binomial-jaakkola", "poisson"])
+def test_full_covariance(family):
+    rng = np.random.default_rng(12)
+    n, p, gsize = 120, 30, 5
+    groups = _make_groups(p, gsize)
+    X = 0.3 * rng.standard_normal((n, p))
+    b = np.zeros(p)
+    b[5:10] = 1.0
+    if family == "gaussian":
+        y = X @ b + rng.standard_normal(n)
+    elif family == "poisson":
+        y = rng.poisson(np.exp(X @ b)).astype(float)
+    else:
+        y = (rng.random(n) < 1.0 / (1.0 + np.exp(-(X @ b)))).astype(float)
+
+    gsvbpy.set_seed(13)
+    f = gsvbpy.gsvb_fit(y, X, groups, family=family, diag_covariance=False,
+                        verbose=False, niter=60)
+    # s is a list of per-group covariance matrices
+    assert isinstance(f["s"], list)
+    assert np.asarray(f["s"][2]).shape == (gsize, gsize)
+    assert np.isfinite(f["beta_hat"]).all()
+    ci = gsvbpy.gsvb_credible_intervals(f)
+    assert ci["lower"].shape == f["mu"].shape
+
+
+def test_jensen_refined_force_diagonal():
+    rng = np.random.default_rng(14)
+    X = rng.standard_normal((40, 10))
+    y = (rng.random(40) < 0.5).astype(float)
+    groups = _make_groups(10, 5)
+    with pytest.warns(UserWarning, match="diagonal"):
+        f = gsvbpy.gsvb_fit(y, X, groups, family="binomial-jensens",
+                            diag_covariance=False, verbose=False, niter=10)
+    assert f["parameters"]["diag_covariance"] is True
+
+
+def test_invalid_family_raises():
     rng = np.random.default_rng(8)
     X = rng.standard_normal((20, 10))
-    y = (rng.random(20) < 0.5).astype(float)
+    y = rng.standard_normal(20)
     groups = _make_groups(10, 5)
-    with pytest.raises(NotImplementedError):
-        gsvbpy.gsvb_fit(y, X, groups, family="binomial-jensens")
+    with pytest.raises(ValueError):
+        gsvbpy.gsvb_fit(y, X, groups, family="not-a-family")

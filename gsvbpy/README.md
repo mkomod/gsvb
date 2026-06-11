@@ -51,9 +51,11 @@ print("converged:", f["converged"], "in", f["iter"], "iterations")
 ## API
 
 - `gsvb_fit(y, X, groups, family=...)` — fit the model. Families:
-  `"gaussian"`, `"binomial-jaakkola"`, `"poisson"` (diagonal covariance).
-  The remaining binomial bounds in the GSVB backend are compiled but not yet
-  exposed through the Python API.
+  `"gaussian"`, `"binomial-jensens"`, `"binomial-jaakkola"`,
+  `"binomial-refined"`, `"poisson"`. Pass `diag_covariance=False` for a
+  per-group full covariance (supported for `"gaussian"`,
+  `"binomial-jaakkola"` and `"poisson"`; the Jensen and refined bounds are
+  diagonal only).
 - `gsvb_predict(fit, newdata, ...)` — posterior predictive samples.
 - `gsvb_sample(fit, samples=...)` — draw from the variational posterior.
 - `gsvb_credible_intervals(fit, prob=...)` — marginal credible intervals.

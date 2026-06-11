@@ -1,8 +1,9 @@
 """gsvbpy: group-sparse variational Bayes regression (Python port of GSVB).
 
-Scalable group-sparse Bayesian linear, logistic and Poisson regression with
-uncertainty quantification. The variational inference runs in a compiled C++
-backend (Armadillo + Ensmallen). Reference: https://arxiv.org/abs/2309.10378
+Scalable group-sparse Bayesian linear, logistic (Jensen, Jaakkola and refined
+bounds) and Poisson regression with uncertainty quantification. The variational
+inference runs in a compiled C++ backend (Armadillo + Ensmallen).
+Reference: https://arxiv.org/abs/2309.10378
 """
 
 from . import _gsvb_core
